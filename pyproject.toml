@@ -1,0 +1,67 @@
+[project]
+name = "security-copilot"
+version = "0.1.0"
+description = "Finds known vulnerabilities in Python dependencies, explains them with cited advisories, and opens fix pull requests."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = []
+
+[dependency-groups]
+core = [
+    "openai>=1.60",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "tenacity>=9.0",
+    "diskcache>=5.6",
+    "httpx>=0.27",
+]
+rag = [
+    "sentence-transformers>=3.3",
+    "chromadb>=0.5.20",
+    "rank-bm25>=0.2.2",
+    "packaging>=24.2",
+]
+agents = [
+    "langgraph>=0.2.60",
+    "langchain-openai>=0.2.14",
+    "langchain-mcp-adapters>=0.0.5",
+    "mcp>=1.28,<2",
+    "PyGithub>=2.5",
+]
+app = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "streamlit>=1.41",
+]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+default-groups = ["core", "rag", "agents", "app", "dev"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/copilot"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ANN"]
+ignore = ["ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN"]
+# These two set sys.path before importing the package, so imports cannot come first.
+"tests/conftest.py" = ["ANN", "E402"]
+"scripts/*" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
