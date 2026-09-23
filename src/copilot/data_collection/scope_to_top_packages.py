@@ -20,7 +20,9 @@ def top_package_names(payload: dict, limit: int) -> list[str]:
     return [row["project"] for row in rows[:limit]]
 
 
-def fetch_top_packages(limit: int = DEFAULT_PACKAGE_LIMIT, url: str = TOP_PACKAGES_URL) -> list[str]:
+def fetch_top_packages(
+    limit: int = DEFAULT_PACKAGE_LIMIT, url: str = TOP_PACKAGES_URL
+) -> list[str]:
     response = httpx.get(url, follow_redirects=True, timeout=60.0)
     response.raise_for_status()
     return top_package_names(response.json(), limit)
