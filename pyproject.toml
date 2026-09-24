@@ -61,6 +61,8 @@ ignore = ["ANN401"]
 # These two set sys.path before importing the package, so imports cannot come first.
 "tests/conftest.py" = ["ANN", "E402"]
 "scripts/*" = ["E402"]
+# A deliberately out-of-date fixture app, kept as plain as the thing it imitates.
+"demo_vulnerable_app/*" = ["ANN"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
