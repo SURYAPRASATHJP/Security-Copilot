@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     groq_base_url: str = "https://api.groq.com/openai/v1"
     model_name: str = "openai/gpt-oss-120b"
     guard_model_name: str = "meta-llama/llama-prompt-guard-2-86m"
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+    reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     input_usd_per_million_tokens: float = 0.15
     output_usd_per_million_tokens: float = 0.60
@@ -36,6 +38,10 @@ class Settings(BaseSettings):
 
     data_dir: Path = REPO_ROOT / "data"
     cache_dir: Path = REPO_ROOT / ".cache"
+
+    @property
+    def chroma_dir(self) -> Path:
+        return REPO_ROOT / ".chroma"
 
     @property
     def llm_call_log(self) -> Path:
