@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+from packaging.utils import canonicalize_name
 from pydantic import BaseModel, Field
 
 CVE_PREFIX = "CVE-"
@@ -77,23 +78,35 @@ def _cvss_vector(record: dict[str, Any]) -> str | None:
 
 def advisories_from_osv(record: dict[str, Any]) -> list[Advisory]:
     """Return one Advisory per PyPI package the OSV record affects."""
-    advisories = []
     severity_word = (record.get("database_specific") or {}).get("severity")
     references = [ref["url"] for ref in record.get("references", []) if ref.get("url")]
 
+    # One record can list the same package in several affected blocks, one per version window.
+    by_package: dict[str, dict[str, Any]] = {}
     for affected in record.get("affected", []):
         package = affected.get("package") or {}
-        if package.get("ecosystem") != "PyPI" or not package.get("name"):
+        name = package.get("name")
+        if package.get("ecosystem") != "PyPI" or not name:
             continue
-        ranges = _version_ranges(affected)
+        group = by_package.setdefault(
+            canonicalize_name(name), {"name": name, "ranges": [], "versions": []}
+        )
+        group["ranges"].extend(_version_ranges(affected))
+        group["versions"].extend(affected.get("versions", []))
+
+    advisories = []
+    for group in by_package.values():
+        ranges = list(
+            {(r.introduced, r.fixed, r.last_affected): r for r in group["ranges"]}.values()
+        )
         advisories.append(
             Advisory(
                 id=record["id"],
-                package=package["name"],
+                package=group["name"],
                 aliases=list(record.get("aliases", [])),
                 ranges=ranges,
-                fixed_versions=[r.fixed for r in ranges if r.fixed],
-                affected_versions=list(affected.get("versions", [])),
+                fixed_versions=list(dict.fromkeys(r.fixed for r in ranges if r.fixed)),
+                affected_versions=list(dict.fromkeys(group["versions"])),
                 summary=record.get("summary", "") or "",
                 details=record.get("details", "") or "",
                 severity=severity_word,

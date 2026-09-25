@@ -98,3 +98,37 @@ def test_a_last_affected_event_is_kept():
     advisory = advisories_from_osv(record)[0]
     assert advisory.ranges[0].last_affected == "5.3"
     assert advisory.fixed_versions == []
+
+
+def test_two_affected_blocks_for_one_package_become_one_advisory():
+    record = {
+        "id": "GHSA-dup",
+        "affected": [
+            {
+                "package": {"ecosystem": "PyPI", "name": "protobuf"},
+                "ranges": [{"events": [{"introduced": "3.0"}, {"fixed": "3.18.3"}]}],
+                "versions": ["3.0"],
+            },
+            {
+                "package": {"ecosystem": "PyPI", "name": "Protobuf"},
+                "ranges": [{"events": [{"introduced": "4.0"}, {"fixed": "4.21.6"}]}],
+                "versions": ["4.0"],
+            },
+        ],
+    }
+    advisories = advisories_from_osv(record)
+    assert len(advisories) == 1
+    assert advisories[0].fixed_versions == ["3.18.3", "4.21.6"]
+    assert advisories[0].affected_versions == ["3.0", "4.0"]
+    assert len(advisories[0].ranges) == 2
+
+
+def test_an_identical_range_repeated_is_not_duplicated():
+    block = {
+        "package": {"ecosystem": "PyPI", "name": "redis"},
+        "ranges": [{"events": [{"introduced": "0"}, {"fixed": "4.5.3"}]}],
+    }
+    advisories = advisories_from_osv({"id": "GHSA-same", "affected": [block, dict(block)]})
+    assert len(advisories) == 1
+    assert len(advisories[0].ranges) == 1
+    assert advisories[0].fixed_versions == ["4.5.3"]

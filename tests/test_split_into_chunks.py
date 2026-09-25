@@ -54,9 +54,7 @@ def test_affected_range_reads_as_a_version_specifier():
 
 
 def test_affected_range_handles_last_affected_and_open_ranges():
-    last = Advisory(
-        id="a", package="p", ranges=[VersionRange(introduced="0", last_affected="5.3")]
-    )
+    last = Advisory(id="a", package="p", ranges=[VersionRange(introduced="0", last_affected="5.3")])
     open_ended = Advisory(id="a", package="p", ranges=[VersionRange(introduced="1.0")])
     assert affected_range(last) == ">=0,<=5.3"
     assert affected_range(open_ended) == ">=1.0"
@@ -172,3 +170,11 @@ def test_chunks_round_trip_through_disk(tmp_path):
     path = tmp_path / "chunks.jsonl"
     assert write_chunks(chunks, path) == len(chunks)
     assert [c.chunk_id for c in read_chunks(path)] == [c.chunk_id for c in chunks]
+
+
+def test_writing_a_repeated_chunk_id_is_refused(tmp_path):
+    import pytest
+
+    chunk = structure_aware_chunks(ADVISORY, WordTokenizer())[0]
+    with pytest.raises(ValueError, match="repeated chunk ids"):
+        write_chunks([chunk, chunk], tmp_path / "chunks.jsonl")

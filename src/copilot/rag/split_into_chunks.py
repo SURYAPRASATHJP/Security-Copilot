@@ -199,13 +199,19 @@ def structure_aware_chunks(
 
 
 def write_chunks(chunks: Iterable[Chunk], path: Path) -> int:
+    """Write chunks as JSON lines, refusing a set with a repeated id."""
+    chunks = list(chunks)
+    seen: set[str] = set()
+    repeated = {c.chunk_id for c in chunks if c.chunk_id in seen or seen.add(c.chunk_id)}
+    if repeated:
+        # A repeated id means two advisories collided, and the vector store would reject it later.
+        raise ValueError(f"{len(repeated)} repeated chunk ids, first {sorted(repeated)[0]}")
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    written = 0
     with path.open("w", encoding="utf-8") as handle:
         for chunk in chunks:
             handle.write(chunk.model_dump_json() + "\n")
-            written += 1
-    return written
+    return len(chunks)
 
 
 def read_chunks(path: Path) -> list[Chunk]:
