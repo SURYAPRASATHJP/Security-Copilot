@@ -132,3 +132,41 @@ def test_an_identical_range_repeated_is_not_duplicated():
     assert len(advisories) == 1
     assert len(advisories[0].ranges) == 1
     assert advisories[0].fixed_versions == ["4.5.3"]
+
+
+def test_a_git_commit_range_is_ignored():
+    record = {
+        "id": "PYSEC-2023-74",
+        "affected": [
+            {
+                "package": {"ecosystem": "PyPI", "name": "requests"},
+                "ranges": [
+                    {
+                        "type": "GIT",
+                        "repo": "https://github.com/psf/requests",
+                        "events": [{"introduced": "0"}, {"fixed": "74ea7cf7a6a27a4ee"}],
+                    },
+                    {
+                        "type": "ECOSYSTEM",
+                        "events": [{"introduced": "2.3.0"}, {"fixed": "2.31.0"}],
+                    },
+                ],
+            }
+        ],
+    }
+    advisory = advisories_from_osv(record)[0]
+    assert advisory.fixed_versions == ["2.31.0"]
+    assert [(r.introduced, r.fixed) for r in advisory.ranges] == [("2.3.0", "2.31.0")]
+
+
+def test_a_range_with_no_type_is_treated_as_an_ecosystem_range():
+    record = {
+        "id": "GHSA-untyped",
+        "affected": [
+            {
+                "package": {"ecosystem": "PyPI", "name": "requests"},
+                "ranges": [{"events": [{"introduced": "1.0"}, {"fixed": "2.0"}]}],
+            }
+        ],
+    }
+    assert advisories_from_osv(record)[0].fixed_versions == ["2.0"]

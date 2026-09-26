@@ -4,6 +4,9 @@ from typing import Any
 from packaging.utils import canonicalize_name
 from pydantic import BaseModel, Field
 
+# OSV also publishes GIT ranges whose bounds are commit hashes, which are not PyPI versions.
+VERSION_RANGE_TYPES = {"ECOSYSTEM", "SEMVER"}
+
 CVE_PREFIX = "CVE-"
 GHSA_PREFIX = "GHSA-"
 
@@ -51,6 +54,8 @@ class Advisory(BaseModel):
 def _version_ranges(affected: dict[str, Any]) -> list[VersionRange]:
     ranges: list[VersionRange] = []
     for raw_range in affected.get("ranges", []):
+        if raw_range.get("type", "ECOSYSTEM") not in VERSION_RANGE_TYPES:
+            continue
         current = VersionRange()
         for event in raw_range.get("events", []):
             if "introduced" in event:
