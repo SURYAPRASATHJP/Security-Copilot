@@ -32,6 +32,7 @@ app = [
     "fastapi>=0.115",
     "uvicorn>=0.32",
     "streamlit>=1.41",
+    "pandas>=2.2",
 ]
 dev = [
     "pytest>=8.3",

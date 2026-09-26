@@ -2162,6 +2162,7 @@ agents = [
 ]
 app = [
     { name = "fastapi" },
+    { name = "pandas" },
     { name = "streamlit" },
     { name = "uvicorn" },
 ]
@@ -2196,6 +2197,7 @@ agents = [
 ]
 app = [
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "pandas", specifier = ">=2.2" },
     { name = "streamlit", specifier = ">=1.41" },
     { name = "uvicorn", specifier = ">=0.32" },
 ]

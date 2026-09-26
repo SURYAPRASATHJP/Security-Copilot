@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     input_usd_per_million_tokens: float = 0.15
     output_usd_per_million_tokens: float = 0.60
 
+    api_base_url: str = "http://127.0.0.1:8000"
     request_timeout_seconds: float = 60.0
     max_attempts: int = 5
 
