@@ -4,6 +4,7 @@ import streamlit as st
 
 from copilot.settings import get_settings
 
+NUMERIC_COLUMNS = ("CVSS", "EPSS")
 FINDING_COLUMNS = {
     "package": "Package",
     "installed_version": "Version",
@@ -42,7 +43,12 @@ def findings_table(findings: list[dict]) -> pd.DataFrame:
             {label: finding.get(key) for key, label in FINDING_COLUMNS.items()}
             | {"Link": osv_link(finding["advisory_id"])}
         )
-    return pd.DataFrame(rows)
+    table = pd.DataFrame(rows)
+    for column in NUMERIC_COLUMNS:
+        if column in table:
+            # A mixed float and None column renders the word None, so force it numeric.
+            table[column] = pd.to_numeric(table[column], errors="coerce")
+    return table
 
 
 def render_answer(result: dict) -> None:

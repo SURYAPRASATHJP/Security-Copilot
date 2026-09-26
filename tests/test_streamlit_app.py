@@ -55,3 +55,10 @@ def test_every_row_links_to_its_advisory():
 
 def test_an_empty_finding_list_gives_an_empty_table():
     assert findings_table([]).empty
+
+
+def test_a_missing_score_does_not_render_as_the_word_none():
+    table = findings_table(FINDINGS)
+    assert "None" not in table.to_string()
+    assert str(table["CVSS"].dtype).startswith("float")
+    assert str(table["EPSS"].dtype).startswith("float")
