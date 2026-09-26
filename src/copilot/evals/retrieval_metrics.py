@@ -136,6 +136,17 @@ def write_report(scores: Sequence[SetupScore], path: Path, questions: int) -> No
                 f"Best setup: **{best.label}** at {best.hit_rate_at_5:.3f} hit rate at 5 and "
                 f"{best.mrr:.3f} MRR.",
                 "",
+                "### What this table does not measure",
+                "",
+                "Every generated question names its advisory or CVE id, so BM25 can match the",
+                "identifier exactly and scores far higher here than it would on the questions a",
+                "developer actually types. Read hit rate as a check that the right chunk is",
+                "reachable at all, and MRR as the honest separator: reranking is what moves the",
+                "right passage to position one. The production setup is hybrid search with",
+                "reranking over structure-aware chunks, because it is the only one that holds up",
+                "when the question does not quote an id. Removing this bias from the question set",
+                "is the first item for error analysis in Phase 3.",
+                "",
             ]
         ),
         encoding="utf-8",
