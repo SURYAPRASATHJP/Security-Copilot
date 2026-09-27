@@ -111,3 +111,20 @@ def test_reading_from_disk_records_the_path(tmp_path):
     parsed = read_requirements_file(path)
     assert parsed.path == str(path)
     assert parsed.requirements[0].line_number == 1
+
+
+def test_a_byte_order_mark_does_not_hide_the_first_package():
+    parsed = read_requirements_text("\ufeffrequests==2.27.1\nflask==2.2.2\n")
+    assert [r.name for r in parsed.requirements] == ["requests", "flask"]
+    assert parsed.warnings == []
+
+
+def test_windows_line_endings_are_handled():
+    parsed = read_requirements_text("requests==2.27.1\r\nflask==2.2.2\r\n")
+    assert [r.pinned_version for r in parsed.requirements] == ["2.27.1", "2.2.2"]
+
+
+def test_a_file_of_only_comments_reads_as_empty():
+    parsed = read_requirements_text("# my deps\n# nothing yet\n")
+    assert parsed.requirements == []
+    assert parsed.warnings == []

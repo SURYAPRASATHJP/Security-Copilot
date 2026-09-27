@@ -70,6 +70,8 @@ def strip_noise(line: str) -> str:
 def read_requirements_text(text: str, path: str | None = None) -> RequirementsFile:
     """Parse the contents of a requirements file, warning instead of raising on odd lines."""
     parsed = RequirementsFile(path=path)
+    # Windows editors and many exports prefix the file with a byte order mark.
+    text = text.lstrip("\ufeff")
 
     for number, raw_line in join_continuations(text):
         line = strip_noise(raw_line)
