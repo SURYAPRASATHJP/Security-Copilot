@@ -123,10 +123,20 @@ def main() -> None:
             st.error(error_detail(error))
             report = None
 
+    if report is not None and report["packages_checked"] == 0:
+        st.warning(
+            "No packages could be read from that file. A requirements file needs lines like "
+            "`requests==2.27.1`. Comments, pip options and editable installs are skipped."
+        )
+        for warning in report["warnings"]:
+            st.caption(warning)
+        report = None
+
     if report is not None:
         st.subheader(
             f"{len(report['findings'])} findings across {len(report['packages_affected'])} packages"
         )
+        st.caption(f"{report['packages_checked']} packages read from the file.")
         st.caption(
             "Ordered by what to fix first: known exploited, then exploit probability, "
             "then severity."
