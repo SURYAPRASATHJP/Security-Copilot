@@ -1,5 +1,3 @@
-from functools import lru_cache
-
 from copilot.rag.build_search_index import (
     chroma_client,
     collection_name,
@@ -31,8 +29,8 @@ def chunk_from_stored(chunk_id: str, document: str, metadata: dict) -> Chunk:
     )
 
 
-@lru_cache
-def cached_collection(strategy: str):  # noqa: ANN201
+def open_collection(strategy: str):  # noqa: ANN201
+    """Look the collection up each time, so a rebuilt index is picked up without a restart."""
     return chroma_client().get_collection(collection_name(strategy))
 
 
@@ -45,7 +43,7 @@ def vector_search(
     model=None,  # noqa: ANN001
 ) -> list[SearchResult]:
     """Return the chunks closest to the query in embedding space, optionally for one package."""
-    collection = collection if collection is not None else cached_collection(strategy)
+    collection = collection if collection is not None else open_collection(strategy)
     model = model if model is not None else load_embedder()
 
     response = collection.query(
