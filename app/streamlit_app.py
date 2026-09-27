@@ -31,6 +31,23 @@ def post(path: str, payload: dict) -> dict:
     return response.json()
 
 
+def error_detail(error: httpx.HTTPError) -> str:
+    """Turn any failed request into something readable, JSON body or not."""
+    response = getattr(error, "response", None)
+    if response is None:
+        return f"The API could not be reached: {error}"
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict) and payload.get("detail"):
+        return str(payload["detail"])
+    body = response.text.strip()
+    if body:
+        return f"The API returned {response.status_code}: {body[:400]}"
+    return f"The API returned {response.status_code} with an empty body."
+
+
 def osv_link(advisory_id: str) -> str:
     return f"https://osv.dev/vulnerability/{advisory_id}"
 
@@ -87,17 +104,23 @@ def main() -> None:
                 st.info("No Groq key is set, so the dependency check works but answers will not.")
             if not health["corpus_built"]:
                 st.warning("The advisory corpus is not built. Run make data.")
-        except httpx.HTTPError:
+        except (httpx.HTTPError, ValueError):
             st.error("The API is not reachable. Run make api in another terminal.")
         st.caption(DISCLAIMER)
 
+    report = None
     uploaded = st.file_uploader("Upload a requirements.txt", type=["txt"])
     if uploaded is not None:
         requirements = uploaded.getvalue().decode("utf-8", errors="replace")
         st.session_state["requirements"] = requirements
-        with st.spinner("Checking your dependencies against OSV"):
-            report = post("/check-dependencies", {"requirements": requirements})
+        try:
+            with st.spinner("Checking your dependencies against OSV"):
+                report = post("/check-dependencies", {"requirements": requirements})
+        except httpx.HTTPError as error:
+            st.error(error_detail(error))
+            report = None
 
+    if report is not None:
         st.subheader(
             f"{len(report['findings'])} findings across {len(report['packages_affected'])} packages"
         )
@@ -124,8 +147,8 @@ def main() -> None:
                     "/ask",
                     {"question": question, "requirements": st.session_state.get("requirements")},
                 )
-            except httpx.HTTPStatusError as error:
-                st.error(error.response.json().get("detail", str(error)))
+            except httpx.HTTPError as error:
+                st.error(error_detail(error))
             else:
                 render_answer(result)
 

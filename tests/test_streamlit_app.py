@@ -1,6 +1,7 @@
+import httpx
 import pandas as pd
 
-from app.streamlit_app import FINDING_COLUMNS, findings_table, osv_link
+from app.streamlit_app import FINDING_COLUMNS, error_detail, findings_table, osv_link
 
 FINDINGS = [
     {
@@ -62,3 +63,37 @@ def test_a_missing_score_does_not_render_as_the_word_none():
     assert "None" not in table.to_string()
     assert str(table["CVSS"].dtype).startswith("float")
     assert str(table["EPSS"].dtype).startswith("float")
+
+
+def failed_request(status, body, content_type="application/json"):
+    request = httpx.Request("POST", "http://127.0.0.1:8000/ask")
+    response = httpx.Response(
+        status, content=body, headers={"content-type": content_type}, request=request
+    )
+    return httpx.HTTPStatusError("failed", request=request, response=response)
+
+
+def test_a_json_error_body_shows_its_detail():
+    error = failed_request(503, b'{"detail": "GROQ_API_KEY is not set."}')
+    assert error_detail(error) == "GROQ_API_KEY is not set."
+
+
+def test_an_html_error_body_does_not_crash_the_page():
+    error = failed_request(500, b"<html>Internal Server Error</html>", "text/html")
+    detail = error_detail(error)
+    assert "500" in detail
+    assert "Internal Server Error" in detail
+
+
+def test_an_empty_error_body_still_names_the_status():
+    error = failed_request(502, b"")
+    assert "502" in error_detail(error)
+
+
+def test_json_without_a_detail_field_falls_back_to_the_body():
+    error = failed_request(422, b'{"errors": ["bad input"]}')
+    assert "422" in error_detail(error)
+
+
+def test_a_connection_failure_with_no_response_is_readable():
+    assert "could not be reached" in error_detail(httpx.ConnectError("refused"))
