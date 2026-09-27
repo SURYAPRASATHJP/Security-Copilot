@@ -116,12 +116,18 @@ def main() -> None:
     if uploaded is not None:
         requirements = uploaded.getvalue().decode("utf-8", errors="replace")
         st.session_state["requirements"] = requirements
-        try:
-            with st.spinner("Checking your dependencies against OSV"):
-                report = post("/check-dependencies", {"requirements": requirements})
-        except httpx.HTTPError as error:
-            st.error(error_detail(error))
-            report = None
+        # Asking a question reruns the whole script, so the check is kept rather than repeated.
+        if st.session_state.get("checked_text") != requirements:
+            try:
+                with st.spinner("Checking your dependencies against OSV"):
+                    st.session_state["report"] = post(
+                        "/check-dependencies", {"requirements": requirements}
+                    )
+                st.session_state["checked_text"] = requirements
+            except httpx.HTTPError as error:
+                st.error(error_detail(error))
+                st.session_state["report"] = None
+        report = st.session_state.get("report")
 
     if report is not None and report["packages_checked"] == 0:
         st.warning(
@@ -151,19 +157,32 @@ def main() -> None:
             st.caption(f"Warning: {warning}")
 
     st.subheader("Ask about an advisory")
+
+    if "chat" not in st.session_state:
+        st.session_state["chat"] = []
+
+    for turn in st.session_state["chat"]:
+        st.chat_message("user").write(turn["question"])
+        with st.chat_message("assistant"):
+            if turn.get("error"):
+                st.error(turn["error"])
+            else:
+                render_answer(turn["result"])
+
     question = st.chat_input("For example: am I affected by the requests proxy header leak?")
     if question:
-        st.chat_message("user").write(question)
-        with st.chat_message("assistant"), st.spinner("Searching the advisories"):
+        turn: dict = {"question": question}
+        with st.spinner("Searching the advisories"):
             try:
-                result = post(
+                turn["result"] = post(
                     "/ask",
                     {"question": question, "requirements": st.session_state.get("requirements")},
                 )
             except httpx.HTTPError as error:
-                st.error(error_detail(error))
-            else:
-                render_answer(result)
+                turn["error"] = error_detail(error)
+        st.session_state["chat"].append(turn)
+        # Rerun so the new turn is drawn by the history loop above, like every earlier one.
+        st.rerun()
 
 
 if __name__ == "__main__":
