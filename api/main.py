@@ -1,5 +1,6 @@
 import httpx
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from copilot.data_collection.merge_into_one_record import read_advisories
@@ -21,6 +22,15 @@ app = FastAPI(
 )
 
 _advisory_index: dict | None = None
+
+
+@app.exception_handler(Exception)
+async def any_unhandled_error(request: Request, error: Exception) -> JSONResponse:
+    """Answer with JSON whatever goes wrong, so callers never have to parse an HTML page."""
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(error).__name__}: {error}"},
+    )
 
 
 def advisory_index() -> dict:
