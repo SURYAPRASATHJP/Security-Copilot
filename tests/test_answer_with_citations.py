@@ -7,6 +7,7 @@ from copilot.dependencies.check_my_dependencies import Finding
 from copilot.rag.answer_with_citations import (
     ANSWER_SCHEMA,
     REFUSAL_TEXT,
+    RELEVANCE_FLOOR,
     CitedAnswer,
     allowed_citations,
     answer_question,
@@ -15,6 +16,7 @@ from copilot.rag.answer_with_citations import (
     format_findings,
     format_passages,
     parse_reply,
+    relevant_passages,
     verify_citations,
 )
 from copilot.rag.search_result import SearchResult
@@ -171,3 +173,34 @@ def test_an_unanswerable_question_can_come_back_refused(canned):
     answer = answer_question("What is CVE-2099-12345 about?", results=[])
     assert answer.refused is True
     assert answer.citations == []
+
+
+def scored(score):
+    return PASSAGE.model_copy(update={"score": score})
+
+
+def test_passages_the_reranker_scores_below_zero_are_dropped():
+    assert relevant_passages([scored(-4.8), scored(-8.5)]) == []
+
+
+def test_passages_the_reranker_likes_are_kept():
+    kept = relevant_passages([scored(6.8), scored(4.2), scored(-1.0)])
+    assert [round(p.score, 1) for p in kept] == [6.8, 4.2]
+
+
+def test_the_floor_sits_at_zero():
+    assert RELEVANCE_FLOOR == 0.0
+    assert len(relevant_passages([scored(0.0)])) == 1
+
+
+def test_a_greeting_with_nothing_relevant_gets_no_context(canned):
+    canned(reply(REFUSAL_TEXT, []))
+    answer = answer_question("hi", results=relevant_passages([scored(-4.8)]))
+    assert answer.refused is True
+    assert answer.passages == []
+
+
+def test_context_says_so_when_every_passage_was_filtered_out():
+    assert build_context([], relevant_passages([scored(-4.8)])) == (
+        "No advisories were found for this question."
+    )

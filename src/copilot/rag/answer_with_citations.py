@@ -16,6 +16,10 @@ REFUSAL_TEXT = "I don't have an advisory for that."
 CANDIDATES = 20
 PASSAGES = 5
 
+# The cross-encoder scores a real match around +4 and unrelated text well below zero,
+# so anything negative is noise that would only invite the model to improvise.
+RELEVANCE_FLOOR = 0.0
+
 ANSWER_SCHEMA = {
     "type": "object",
     "properties": {
@@ -41,6 +45,13 @@ class CitedAnswer(BaseModel):
     @property
     def refused(self) -> bool:
         return self.answer.strip().rstrip(".").lower() == REFUSAL_TEXT.rstrip(".").lower()
+
+
+def relevant_passages(
+    results: Sequence[SearchResult], floor: float = RELEVANCE_FLOOR
+) -> list[SearchResult]:
+    """Keep only passages the reranker actually thinks answer the question."""
+    return [result for result in results if result.score >= floor]
 
 
 def format_findings(findings: Sequence[Finding]) -> str:
@@ -126,7 +137,7 @@ def answer_question(
     """Retrieve, ask the model for a structured answer, then check every citation it gave."""
     if results is None:
         candidates = hybrid_search(question, strategy, CANDIDATES, package)
-        results = rerank_results(question, candidates, PASSAGES)
+        results = relevant_passages(rerank_results(question, candidates, PASSAGES))
 
     reply = llm_client.ask_llm(
         build_messages(question, findings, results),
