@@ -116,7 +116,8 @@ def retrieval_table(scores: Sequence[SetupScore]) -> str:
 
 
 def write_report(scores: Sequence[SetupScore], path: Path, questions: int) -> None:
-    best = max(scores, key=lambda score: score.hit_rate_at_5)
+    by_hit_rate = max(scores, key=lambda score: score.hit_rate_at_5)
+    by_mrr = max(scores, key=lambda score: score.mrr)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
@@ -133,8 +134,10 @@ def write_report(scores: Sequence[SetupScore], path: Path, questions: int) -> No
                 "",
                 retrieval_table(scores),
                 "",
-                f"Best setup: **{best.label}** at {best.hit_rate_at_5:.3f} hit rate at 5 and "
-                f"{best.mrr:.3f} MRR.",
+                f"Highest hit rate at 5: **{by_hit_rate.label}** at "
+                f"{by_hit_rate.hit_rate_at_5:.3f}.",
+                f"Highest MRR, and the setup that ships: **{by_mrr.label}** at "
+                f"{by_mrr.mrr:.3f} MRR and {by_mrr.hit_rate_at_5:.3f} hit rate at 5.",
                 "",
                 "### What this table does not measure",
                 "",

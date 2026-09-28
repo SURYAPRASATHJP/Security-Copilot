@@ -126,6 +126,7 @@ def test_the_report_names_the_best_setup(tmp_path):
     path = tmp_path / "eval_report.md"
     write_report(scores, path, questions=10)
     text = path.read_text()
-    assert "hybrid + rerank / structured" in text
+    assert "Highest hit rate at 5: **hybrid + rerank / structured**" in text
+    assert "Highest MRR, and the setup that ships: **hybrid + rerank / structured**" in text
     assert "0.950" in text
     assert "| Retriever | Chunking |" in text
