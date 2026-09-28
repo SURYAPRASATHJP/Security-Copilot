@@ -13,6 +13,7 @@ from copilot.rag.split_into_chunks import STRUCTURED
 
 PROMPT_NAME = "answer_question"
 REFUSAL_TEXT = "I don't have an advisory for that."
+OUT_OF_SCOPE_TEXT = "That is outside what I can help with."
 CANDIDATES = 20
 PASSAGES = 5
 
@@ -44,7 +45,15 @@ class CitedAnswer(BaseModel):
 
     @property
     def refused(self) -> bool:
-        return self.answer.strip().rstrip(".").lower() == REFUSAL_TEXT.rstrip(".").lower()
+        said = self.answer.strip().rstrip(".").lower()
+        return said in {
+            REFUSAL_TEXT.rstrip(".").lower(),
+            OUT_OF_SCOPE_TEXT.rstrip(".").lower(),
+        }
+
+    @property
+    def out_of_scope(self) -> bool:
+        return self.answer.strip().rstrip(".").lower() == OUT_OF_SCOPE_TEXT.rstrip(".").lower()
 
 
 def relevant_passages(
@@ -88,7 +97,8 @@ def format_passages(results: Sequence[SearchResult]) -> str:
 def build_context(findings: Sequence[Finding], results: Sequence[SearchResult]) -> str:
     """Put the user's own dependency facts first, then the retrieved passages."""
     parts = [part for part in (format_findings(findings), format_passages(results)) if part]
-    return "\n\n".join(parts) if parts else "No advisories were found for this question."
+    # A general security question has no advisory behind it, and that is allowed.
+    return "\n\n".join(parts) if parts else "No advisory passages matched this question."
 
 
 def build_messages(

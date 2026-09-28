@@ -6,6 +6,7 @@ from copilot import llm_client
 from copilot.dependencies.check_my_dependencies import Finding
 from copilot.rag.answer_with_citations import (
     ANSWER_SCHEMA,
+    OUT_OF_SCOPE_TEXT,
     REFUSAL_TEXT,
     RELEVANCE_FLOOR,
     CitedAnswer,
@@ -95,7 +96,7 @@ def test_an_unpinned_finding_says_so():
 
 
 def test_no_findings_and_no_passages_still_gives_usable_context():
-    assert build_context([], []) == "No advisories were found for this question."
+    assert build_context([], []) == "No advisory passages matched this question."
     assert format_findings([]) == ""
     assert format_passages([]) == ""
 
@@ -165,7 +166,7 @@ def test_the_answer_records_the_passages_and_the_prompt_version(canned):
     canned(reply("Upgrade to 2.31.0.", ["GHSA-j8r2"]))
     answer = answer_question("Which version fixes it?", results=[PASSAGE])
     assert [p.chunk_id for p in answer.passages] == [PASSAGE.chunk_id]
-    assert answer.prompt_version == "1"
+    assert answer.prompt_version == "2"
 
 
 def test_an_unanswerable_question_can_come_back_refused(canned):
@@ -202,5 +203,29 @@ def test_a_greeting_with_nothing_relevant_gets_no_context(canned):
 
 def test_context_says_so_when_every_passage_was_filtered_out():
     assert build_context([], relevant_passages([scored(-4.8)])) == (
-        "No advisories were found for this question."
+        "No advisory passages matched this question."
     )
+
+
+def test_both_refusal_sentences_count_as_a_refusal():
+    assert CitedAnswer(answer=REFUSAL_TEXT).refused is True
+    assert CitedAnswer(answer=OUT_OF_SCOPE_TEXT).refused is True
+
+
+def test_only_the_off_topic_sentence_counts_as_out_of_scope():
+    assert CitedAnswer(answer=OUT_OF_SCOPE_TEXT).out_of_scope is True
+    assert CitedAnswer(answer=REFUSAL_TEXT).out_of_scope is False
+
+
+def test_a_general_security_answer_is_not_a_refusal():
+    general = CitedAnswer(
+        answer="A ReDoS is a pattern that makes a regular expression take exponential time."
+    )
+    assert general.refused is False
+    assert general.out_of_scope is False
+
+
+def test_the_prompt_is_at_version_two():
+    from copilot.prompt_loader import prompt_version
+
+    assert prompt_version("answer_question") == "2"

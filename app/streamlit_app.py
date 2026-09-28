@@ -82,7 +82,8 @@ def render_answer(result: dict) -> None:
     if result["checked_dependencies"]:
         st.caption("Your requirements file was checked before this answer was written.")
 
-    if not result["sources"]:
+    # A refusal has nothing to show sources for, and listing them only reads as contradiction.
+    if result["refused"] or not result["sources"]:
         return
 
     with st.expander("Show sources"):
