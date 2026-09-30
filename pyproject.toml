@@ -23,6 +23,7 @@ rag = [
 ]
 agents = [
     "langgraph>=0.2.60",
+    "langgraph-checkpoint-sqlite>=2.0",
     "langchain-openai>=0.2.14",
     "langchain-mcp-adapters>=0.0.5",
     "mcp>=1.28,<2",
