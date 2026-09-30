@@ -56,3 +56,27 @@ prose itself is faithful is graded separately by the judge in Phase 3.
 | is_affected | 10 | 10 |
 | unanswerable | 20 | 20 |
 | what_is | 10 | 10 |
+
+## Answers
+
+50 questions from the answer suite, 30 with a known
+answer and 20 about packages and CVE numbers that do not exist.
+
+| Measure | Value | Of |
+| --- | --- | --- |
+| Answer accuracy | 1.000 | 30 of 30 answerable |
+| Refusal accuracy | 1.000 | 20 of 20 unanswerable |
+| Wrong citation rate | 0.000 | 0 of 50 answers |
+| Over-refusal rate | 0.000 | 0 of 30 answerable |
+
+Correctness is checked without a model in the loop. A fixed-version answer has to
+contain the version the advisory names, an is-affected answer has to agree with the
+version comparison, and a what-is answer has to cite the right advisory. Whether the
+prose itself is faithful is graded separately by the judge in Phase 3.
+
+| Question kind | Correct | Asked |
+| --- | --- | --- |
+| fixed_version | 10 | 10 |
+| is_affected | 10 | 10 |
+| unanswerable | 20 | 20 |
+| what_is | 10 | 10 |
