@@ -64,6 +64,8 @@ ignore = ["ANN401"]
 "scripts/*" = ["E402"]
 # A deliberately out-of-date fixture app, kept as plain as the thing it imitates.
 "demo_vulnerable_app/*" = ["ANN"]
+# Fixture repositories imitate ordinary user code, which rarely carries annotations.
+"fixtures/*" = ["ANN"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
