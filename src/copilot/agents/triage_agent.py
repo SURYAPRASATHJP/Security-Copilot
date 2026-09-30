@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from langchain_openai import ChatOpenAI
 from langgraph.errors import GraphRecursionError
 from langgraph.prebuilt import create_react_agent
+from openai import RateLimitError
 from pydantic import BaseModel
 
 from copilot.agents.agent_state import TriageReport
@@ -99,6 +100,9 @@ async def triage_repository(
         stopped_early = f"stopped at the {max_steps} step limit"
     except TokenBudgetExceededError as error:
         stopped_early = str(error)
+    except RateLimitError as error:
+        # The free tier allows 200K tokens a day, and an agent run is not small.
+        stopped_early = f"the model's rate limit was reached: {error}"
 
     report = result.get("structured_response") or TriageReport(repository=repository)
     if not report.repository:

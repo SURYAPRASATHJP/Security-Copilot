@@ -4,6 +4,7 @@ from copilot.agents.agent_state import PackageRisk, TriageReport
 from copilot.agents.mcp_tools import READ_ONLY_TOOLS, WRITE_TOOLS, only, read_only
 from copilot.agents.triage_agent import (
     MAX_STEPS,
+    TOKEN_BUDGET,
     TRIAGE_PROMPT,
     TokenBudgetExceededError,
     budget_guard,
@@ -89,3 +90,8 @@ def test_a_report_orders_its_findings_worst_first():
 
 def test_an_empty_report_is_valid():
     assert TriageReport(repository="demo").worst_first == []
+
+
+def test_the_token_budget_is_under_the_free_tier_daily_limit():
+    # Groq's free tier allows 200,000 tokens a day, so one run must not be able to eat it.
+    assert TOKEN_BUDGET <= 100_000
