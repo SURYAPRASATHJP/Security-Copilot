@@ -18,6 +18,8 @@ from copilot.rag.split_into_chunks import STRUCTURED
 from copilot.settings import get_settings
 
 CANDIDATES = 20
+# A repository can have dozens of findings, and an agent only needs the worst few.
+DEFAULT_FINDING_LIMIT = 10
 
 
 class LookupRequest(BaseModel):
@@ -26,10 +28,14 @@ class LookupRequest(BaseModel):
         default=None, description="Optional free text to search the advisory corpus with."
     )
     passages: int = 5
+    limit: int = Field(
+        default=DEFAULT_FINDING_LIMIT, description="Keep only this many findings, worst first."
+    )
 
 
 class LookupResult(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
+    findings_total: int = 0
     packages_checked: int = 0
     affected_packages: list[str] = Field(default_factory=list)
     passages: list[SearchResult] = Field(default_factory=list)
@@ -50,7 +56,8 @@ def lookup_vulnerabilities(request: LookupRequest) -> LookupResult:
         parsed = RequirementsFile(requirements=list(request.packages))
         with httpx.Client(timeout=60.0) as client:
             report = check_requirements(parsed, local_advisory_index(), client)
-        result.findings = report.findings
+        result.findings_total = len(report.findings)
+        result.findings = report.findings[: request.limit] if request.limit else report.findings
         result.packages_checked = report.packages_checked
         result.affected_packages = report.affected_packages
         result.warnings = report.warnings

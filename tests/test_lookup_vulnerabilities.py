@@ -90,3 +90,20 @@ def test_the_requested_passage_count_is_honoured(monkeypatch):
     monkeypatch.setattr(module, "rerank_results", lambda q, results, k: list(results)[:k])
     result = lookup_vulnerabilities(LookupRequest(question="anything", passages=3))
     assert len(result.passages) == 3
+
+
+def test_only_the_worst_findings_are_returned_but_the_total_is_reported(monkeypatch):
+    many = {"results": [{"vulns": [{"id": f"GHSA-{n}"} for n in range(25)]}]}
+    osv_responds_with(monkeypatch, many)
+    packages = read_requirements_text("requests==2.27.1\n").requirements
+    result = lookup_vulnerabilities(LookupRequest(packages=packages, limit=5))
+    assert len(result.findings) == 5
+    assert result.findings_total == 25
+
+
+def test_a_limit_of_zero_returns_everything(monkeypatch):
+    many = {"results": [{"vulns": [{"id": f"GHSA-{n}"} for n in range(12)]}]}
+    osv_responds_with(monkeypatch, many)
+    packages = read_requirements_text("requests==2.27.1\n").requirements
+    result = lookup_vulnerabilities(LookupRequest(packages=packages, limit=0))
+    assert len(result.findings) == 12

@@ -26,15 +26,20 @@ def scan_repository_for_packages(source: str, max_depth: int = 3) -> dict:
 
 
 @server.tool()
-def look_up_vulnerabilities(packages: list[dict], question: str | None = None) -> dict:
+def look_up_vulnerabilities(
+    packages: list[dict], question: str | None = None, limit: int = 10
+) -> dict:
     """Read only. Find the known vulnerabilities affecting a list of packages.
 
     Pass the packages returned by scan_repository_for_packages. Returns one finding per
     advisory, already ordered by what to fix first: on the CISA known exploited list,
     then exploit probability, then severity. An optional question also searches the
-    advisory text.
+    advisory text. Only the worst `limit` findings come back, with the full count in
+    findings_total, so keep the limit small and ask again if you need more.
     """
-    request = LookupRequest.model_validate({"packages": packages, "question": question})
+    request = LookupRequest.model_validate(
+        {"packages": packages, "question": question, "limit": limit}
+    )
     return lookup_vulnerabilities(request).model_dump()
 
 
