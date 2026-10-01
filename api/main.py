@@ -1,8 +1,18 @@
+import json
+from collections.abc import Iterator
+from functools import lru_cache
+from typing import Any
+from uuid import uuid4
+
 import httpx
 from fastapi import FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from langgraph.types import Command
 from pydantic import BaseModel, Field
 
+from copilot.agents.agent_memory import short_term_checkpointer
+from copilot.agents.human_approval import APPROVED, EDITED, REJECTED
+from copilot.agents.team_supervisor import build_team
 from copilot.data_collection.merge_into_one_record import read_advisories
 from copilot.dependencies.check_my_dependencies import (
     DependencyReport,
@@ -146,3 +156,98 @@ def ask(request: AskRequest) -> AskResponse:
             for passage in answer.passages
         ],
     )
+
+
+@lru_cache
+def team_graph():  # noqa: ANN201
+    """Compile the team once, with the checkpointer that lets an approval resume it."""
+    return build_team(with_write_path=True).compile(checkpointer=short_term_checkpointer())
+
+
+def jsonable(value: Any) -> Any:
+    """Make a graph update safe to put on the wire, whatever the nodes returned."""
+    if isinstance(value, dict):
+        return {str(key): jsonable(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [jsonable(item) for item in value]
+    if hasattr(value, "model_dump"):
+        return jsonable(value.model_dump())
+    if isinstance(value, str | int | float | bool) or value is None:
+        return value
+    return str(value)
+
+
+class ScanRepoRequest(BaseModel):
+    repository: str
+    thread_id: str | None = None
+
+
+class ApproveRequest(BaseModel):
+    thread_id: str
+    decision: str = Field(description="approved, edited or rejected.")
+    upgrades: dict[str, str] = Field(default_factory=dict)
+    reason: str = ""
+
+
+@app.post("/scan-repo")
+def scan_repo(request: ScanRepoRequest) -> StreamingResponse:
+    thread_id = request.thread_id or str(uuid4())
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 25}
+    state = {"repository": request.repository, "steps": 0, "messages": []}
+
+    def steps() -> Iterator[str]:
+        yield json.dumps({"event": "started", "thread_id": thread_id}) + "\n"
+        try:
+            for update in team_graph().stream(state, config, stream_mode="updates"):
+                for node, change in update.items():
+                    yield (
+                        json.dumps(
+                            {
+                                "event": "step",
+                                "thread_id": thread_id,
+                                "node": node,
+                                "update": jsonable(change),
+                            }
+                        )
+                        + "\n"
+                    )
+        except Exception as error:
+            yield (
+                json.dumps(
+                    {
+                        "event": "error",
+                        "thread_id": thread_id,
+                        "detail": f"{type(error).__name__}: {error}",
+                    }
+                )
+                + "\n"
+            )
+            return
+        yield json.dumps({"event": "finished", "thread_id": thread_id}) + "\n"
+
+    return StreamingResponse(steps(), media_type="application/x-ndjson")
+
+
+@app.post("/approve")
+def approve(request: ApproveRequest) -> dict:
+    if request.decision not in (APPROVED, EDITED, REJECTED):
+        raise HTTPException(422, f"decision must be one of {APPROVED}, {EDITED} or {REJECTED}")
+
+    config = {"configurable": {"thread_id": request.thread_id}, "recursion_limit": 25}
+    resumed = team_graph().invoke(
+        Command(
+            resume={
+                "decision": request.decision,
+                "upgrades": request.upgrades,
+                "reason": request.reason,
+            }
+        ),
+        config,
+    )
+    return {
+        "thread_id": request.thread_id,
+        "decision": request.decision,
+        "branch": resumed.get("branch", ""),
+        "upgrades": resumed.get("upgrades") or {},
+        "plan": resumed.get("plan") or [],
+    }
