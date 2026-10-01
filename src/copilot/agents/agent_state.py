@@ -38,9 +38,12 @@ class AgentState(TypedDict, total=False):
     plan: list[str]
     upgrades: dict[str, str]
     test_results: dict | None
+    review: dict | None
     approval: str
     report: dict | None
     branch: str
     pull_request_url: str
     steps: int
+    rewrites: int
+    evidence: list[str]
     messages: Annotated[list, add_messages]
