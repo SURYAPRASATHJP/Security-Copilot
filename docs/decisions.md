@@ -22,3 +22,28 @@ the evidence that says it was right. Newest rows go at the bottom.
 | 2026-09-26 | A GIT range in an OSV record is ignored; only ECOSYSTEM and SEMVER ranges decide whether a version is affected | parse every range type, ignore GIT ranges, try to resolve commits to versions | PYSEC records carry a git range whose bounds are commit hashes. Reading one as a version produced an open-ended window that marked every release affected, so the fix finder returned nothing for every package and the summary cards advertised a commit hash as the fixed version | all 8 demo packages went from no safe version to a concrete one, for example requests 2.27.1 to 2.33.0 |
 | 2026-09-27 | The copilot answers general security questions from its own knowledge, but a claim about a specific advisory, package or version must come from the retrieved context | refuse anything not in the corpus, answer everything, split by what kind of claim it is | Refusing "what is a ReDoS" the same way it refuses a made-up CVE makes the tool feel broken, but letting it speak freely about versions is exactly how it would start inventing fixes. The split keeps the guarantee where it matters, which is anything a developer would act on | prompt version 2; refusal accuracy held at 1.000 on 20 invented CVEs and packages |
 | 2026-09-30 | Agent runs are budgeted and batched against a 200,000 token daily ceiling | run freely and retry on failure, cap tokens per run, cap tokens and cap tool output | The free Groq tier allows 200K tokens a day and three runs of a 50 question eval very nearly spends all of it. One unbounded agent run over a repository with 50 findings would spend a large part of a day's budget in a single pass | the lookup tool returns 10 findings rather than 50, a run stops at 60,000 tokens or 12 steps, and a rate limit is reported as a partial result rather than a crash |
+
+## Tool permissions
+
+Seven tools are served over MCP. Five cannot change anything. The two that can are fenced
+in by what they are allowed to touch, not by asking the model to behave.
+
+| Tool | Reads | Writes | May touch | Hard limits |
+| --- | --- | --- | --- | --- |
+| `scan_repository_for_packages` | the repository | nothing | nothing | clones into a temporary folder, refuses any zip entry that escapes it |
+| `look_up_vulnerabilities` | OSV and the local corpus | nothing | nothing | returns the worst 10 findings by default, never the whole list |
+| `check_if_code_uses_the_package` | the repository's Python files | nothing | nothing | parses with `ast`, never imports or runs the code |
+| `find_the_lowest_safe_version` | PyPI and the local corpus | nothing | nothing | only ever returns a version PyPI actually serves |
+| `run_the_project_tests` | the repository | a throwaway environment | a temporary directory it creates and deletes | 5 minute timeout, the environment never touches the repository |
+| `update_the_requirements_file` | the repository | one file | `requirements*.txt` only | refuses any other filename, refuses `main`, `master`, `trunk` and `develop`, needs approval first |
+| `open_a_pull_request` | nothing | a pull request | one branch to one base | refuses a protected head branch, refuses head equal to base, opens as a draft by default, needs approval first |
+
+The triage agent is handed only the five read-only tools, so it cannot write even if it
+decides it wants to. The team's Fixer gets the write tools, and every call to one passes
+through `human_approval.py` first: the graph stops, the planned change is shown as a diff,
+and nothing is written until a person approves or edits it. A rejection raises rather than
+falling through to a default.
+
+The GitHub token is never stored by this project. `open_a_pull_request` reads it from the
+`gh` login the user already has, so revoking access is something the user does in one place
+and this repository holds no secret to leak.
