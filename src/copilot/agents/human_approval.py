@@ -44,6 +44,11 @@ class ApprovalDecision(BaseModel):
         return self.decision in (APPROVED, EDITED)
 
 
+def write_allowed(approval: str) -> bool:
+    """An edit is an approval of a changed set, so it permits the write too."""
+    return approval in (APPROVED, EDITED)
+
+
 def is_write_tool(tool_name: str) -> bool:
     return tool_name in WRITE_TOOLS
 

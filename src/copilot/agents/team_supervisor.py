@@ -8,6 +8,12 @@ from pydantic import BaseModel, Field
 from copilot import llm_client
 from copilot.agents.agent_memory import RepositoryMemory, filter_findings
 from copilot.agents.agent_state import AgentState, PackageRisk, TriageReport
+from copilot.agents.human_approval import (
+    PlannedChange,
+    approved_upgrades,
+    request_approval,
+    write_allowed,
+)
 from copilot.agents.tools.check_if_code_uses_package import (
     FUNCTION_NOT_CALLED,
     NOT_USED,
@@ -19,11 +25,19 @@ from copilot.agents.tools.find_safe_version import SafeVersionRequest, find_safe
 from copilot.agents.tools.lookup_vulnerabilities import LookupRequest, lookup_vulnerabilities
 from copilot.agents.tools.run_project_tests import ProjectTestRequest, run_project_tests
 from copilot.agents.tools.scan_repository import ScanRequest, scan_repository
+from copilot.agents.tools.update_requirements_file import (
+    UpdateRequest,
+    update_requirements_file,
+)
 
 SCANNER = "scanner"
 ANALYST = "analyst"
 FIXER = "fixer"
 REVIEWER = "reviewer"
+APPROVAL = "approval"
+WRITER = "writer"
+
+FIX_BRANCH = "security-copilot/fix-dependencies"
 
 MAX_PACKAGES_TO_FIX = 3
 MAX_QUERY_REWRITES = 2
@@ -256,8 +270,56 @@ def route_after_review(state: AgentState) -> str:
     return FIXER if review.get("send_back") else END
 
 
-def build_team() -> StateGraph:
-    """Wire the supervisor's workers together: scan, analyse, fix, review."""
+def approval(state: AgentState) -> dict:
+    """Stop here. Nothing is written until a person has seen the diff and said yes."""
+    upgrades = state.get("upgrades") or {}
+    if not upgrades:
+        return {"approval": "not needed", "steps": state.get("steps", 0) + 1}
+
+    preview = update_requirements_file(
+        UpdateRequest(
+            repo_path=state["repository"],
+            branch=state.get("branch") or FIX_BRANCH,
+            upgrades=upgrades,
+        ),
+        write=False,
+    )
+    change = PlannedChange(
+        kind="update_requirements",
+        repository=state["repository"],
+        branch=state.get("branch") or FIX_BRANCH,
+        summary=f"Repin {len(upgrades)} packages",
+        diff=preview.diff,
+        upgrades=upgrades,
+    )
+    decision = request_approval(change)
+    return {
+        "approval": decision.decision,
+        "upgrades": approved_upgrades(change, decision) if decision.allows_the_write else {},
+        "steps": state.get("steps", 0) + 1,
+    }
+
+
+def writer(state: AgentState) -> dict:
+    """Write the approved change, and only the approved change."""
+    upgrades = state.get("upgrades") or {}
+    if not write_allowed(state.get("approval") or "") or not upgrades:
+        return {"steps": state.get("steps", 0) + 1}
+
+    branch = state.get("branch") or FIX_BRANCH
+    written = update_requirements_file(
+        UpdateRequest(repo_path=state["repository"], branch=branch, upgrades=upgrades)
+    )
+    plan = [*(state.get("plan") or []), f"wrote {len(written.changed)} pins on {branch}"]
+    return {"branch": branch, "plan": plan, "steps": state.get("steps", 0) + 1}
+
+
+def route_after_approval(state: AgentState) -> str:
+    return WRITER if write_allowed(state.get("approval") or "") else END
+
+
+def build_team(with_write_path: bool = False) -> StateGraph:
+    """Wire the supervisor's workers together: scan, analyse, fix, review, then write."""
     graph = StateGraph(AgentState)
     graph.add_node(SCANNER, scanner)
     graph.add_node(ANALYST, analyst)
@@ -268,8 +330,26 @@ def build_team() -> StateGraph:
     graph.add_edge(SCANNER, ANALYST)
     graph.add_edge(ANALYST, FIXER)
     graph.add_edge(FIXER, REVIEWER)
-    graph.add_conditional_edges(REVIEWER, route_after_review, {FIXER: FIXER, END: END})
+
+    if not with_write_path:
+        graph.add_conditional_edges(REVIEWER, route_after_review, {FIXER: FIXER, END: END})
+        return graph
+
+    graph.add_node(APPROVAL, approval)
+    graph.add_node(WRITER, writer)
+    graph.add_conditional_edges(
+        REVIEWER, route_after_review_with_write, {FIXER: FIXER, APPROVAL: APPROVAL, END: END}
+    )
+    graph.add_conditional_edges(APPROVAL, route_after_approval, {WRITER: WRITER, END: END})
+    graph.add_edge(WRITER, END)
     return graph
+
+
+def route_after_review_with_write(state: AgentState) -> str:
+    review = state.get("review") or {}
+    if review.get("send_back"):
+        return FIXER
+    return APPROVAL if review.get("accepted") and state.get("upgrades") else END
 
 
 def run_team(repository: str, memory: RepositoryMemory | None = None) -> TeamOutcome:
