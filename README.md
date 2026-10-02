@@ -10,9 +10,10 @@ inventing answers.
 
 ## Status
 
-Phase 1 of 3 is complete: the advisory corpus, hybrid retrieval with reranking, the
-dependency check, cited answers, the API and the interface. Phase 2 adds the agent team
-and fix pull requests.
+Phase 2 of 3 is nearly complete. Phase 1 built the advisory corpus, hybrid retrieval with
+reranking, the dependency check and cited answers. Phase 2 added seven tools behind an MCP
+server, a single triage agent, the agent team, and an approval gate that stops the graph
+before anything is written. Phase 3 adds tracing, guardrails, a classifier and deployment.
 
 ## Run it
 
@@ -72,6 +73,36 @@ caveat are in [docs/eval_report.md](docs/eval_report.md).
 exploited list, then exploit probability, then severity. Advisories that mirror the same
 CVE are collapsed, which took the raw count from 93 down to 50.
 
+## Phase 2 results
+
+Seven tools are served over MCP, so the agent and any MCP-speaking editor use the same
+definitions and the same refusals. See [docs/use_with_mcp_clients.md](docs/use_with_mcp_clients.md).
+
+| What | Number |
+| --- | --- |
+| Tools served over MCP | 7, of which 2 can write |
+| Scenarios the team passed | 4 of 4 run so far |
+| Writes without an approval | 0 |
+| Model tokens the team spent on those scenarios | 0 |
+| Steps per scan | 4 |
+
+On the demo app the team ranks `cryptography`, `requests` and `flask` above `werkzeug`,
+`urllib3` and `idna`, because the first three are imported and called and the last three
+only arrive as transitive dependencies. `werkzeug` has the highest exploit probability of
+the eight and still ranks fourth, which is the whole point of checking usage with `ast`
+before ranking.
+
+The single ReAct agent baseline has not run yet. Groq's free tier allows 200,000 tokens a
+day and the answer evals spent it, so the comparison is deferred rather than guessed at.
+[docs/eval_report.md](docs/eval_report.md) says so in full.
+
+### Nothing is written without a person
+
+The graph stops at an approval node, writes its state to SQLite, and shows the diff. A
+rejection writes nothing, an edit writes only the lines that were ticked, and the writer
+refuses to act on anything other than an approval. That path has its own tests in
+`tests/test_team_write_path.py`.
+
 ## How it is put together
 
 | Piece | Where | What it does |
@@ -81,6 +112,8 @@ CVE are collapsed, which took the raw count from 93 down to 50.
 | Data collection | `src/copilot/data_collection/` | OSV, NVD, EPSS and KEV, merged into one record per advisory and package |
 | Retrieval | `src/copilot/rag/` | Two chunking strategies, BM25, vectors, reciprocal rank fusion, cross-encoder reranking |
 | Dependency check | `src/copilot/dependencies/` | Requirements parsing and the version comparison, with no model involved |
+| Tools | `src/copilot/agents/tools/` | Seven tools, Pydantic in and out, read and write separated |
+| Agents | `src/copilot/agents/` | The MCP server, the triage agent, the team graph, memory, approval |
 | Evaluation | `src/copilot/evals/` | The generated golden set and every measurement above |
 | Decisions | `docs/decisions.md` | Every design choice, the options compared, and the evidence |
 
