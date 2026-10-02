@@ -86,3 +86,12 @@ def test_the_time_taken_is_always_recorded(tmp_path, monkeypatch):
     (tmp_path / "requirements.txt").write_text("requests==2.31.0\n")
     wire(monkeypatch, run=completed(0, stdout="ok"))
     assert run_project_tests(ProjectTestRequest(repo_path=str(tmp_path))).seconds > 0
+
+
+def test_colour_codes_are_stripped_from_the_output():
+    coloured = "\x1b[32m.\x1b[0m\n\x1b[1m6 passed\x1b[0m in 1.2s"
+    assert tail_of(coloured) == [".", "6 passed in 1.2s"]
+
+
+def test_plain_output_is_left_alone():
+    assert tail_of("6 passed in 1.2s") == ["6 passed in 1.2s"]

@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess
 import time
@@ -9,6 +10,9 @@ from pydantic import BaseModel, Field
 DEFAULT_TIMEOUT_SECONDS = 300
 OUTPUT_TAIL_LINES = 30
 INSTALL_TIMEOUT_SECONDS = 600
+
+# pytest colours its output, and those escape codes end up in pull request bodies.
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class ProjectTestRequest(BaseModel):
@@ -38,7 +42,8 @@ class ProjectTestResult(BaseModel):
 
 
 def tail_of(text: str, lines: int = OUTPUT_TAIL_LINES) -> list[str]:
-    return [line for line in text.splitlines() if line.strip()][-lines:]
+    plain = ANSI.sub("", text)
+    return [line for line in plain.splitlines() if line.strip()][-lines:]
 
 
 def create_environment(directory: Path, python_version: str) -> subprocess.CompletedProcess:
