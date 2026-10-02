@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -7,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from copilot.agents.agent_state import TriageReport
 from copilot.agents.team_supervisor import run_team
-from copilot.agents.triage_agent import triage_repository_blocking
+from copilot.agents.triage_agent import triage_repository
 from copilot.evals.agent_scenarios import AgentScenario, read_scenarios
 from copilot.settings import get_settings
 
@@ -87,8 +88,8 @@ def check_scenario(
     return not reasons, reasons
 
 
-def run_single(scenario: AgentScenario) -> ScenarioResult:
-    outcome = triage_repository_blocking(scenario.repository)
+async def run_single(scenario: AgentScenario) -> ScenarioResult:
+    outcome = await triage_repository(scenario.repository)
     passed, reasons = check_scenario(scenario, outcome.report, {})
     if outcome.stopped_early:
         passed = False
@@ -178,6 +179,30 @@ def append_to_report(
     path.write_text(existing.rstrip("\n") + "\n" + "\n".join(lines), encoding="utf-8")
 
 
+async def run_everything(
+    scenarios: Sequence[AgentScenario], only: str | None
+) -> list[ScenarioResult]:
+    """Run every scenario inside one event loop, because the HTTP client is bound to it."""
+    results: list[ScenarioResult] = []
+    for scenario in scenarios:
+        for agent in (SINGLE, TEAM):
+            if only and agent != only:
+                continue
+            if agent == SINGLE:
+                result = await run_single(scenario)
+            else:
+                result = run_the_team(scenario)
+            results.append(result)
+            mark = "ok " if result.passed else "bad"
+            print(
+                f"{mark} {agent:12} {scenario.scenario_id:26} "
+                f"steps {result.steps:2} tokens {result.tokens:6} {result.seconds:5.0f}s"
+            )
+            for reason in result.reasons:
+                print(f"      {reason}")
+    return results
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Compare the single agent against the team.")
     parser.add_argument("--limit", type=int, default=0, help="run only the first N scenarios")
@@ -188,26 +213,10 @@ def main() -> int:
     if args.limit:
         scenarios = scenarios[: args.limit]
 
-    results: list[ScenarioResult] = []
-    for scenario in scenarios:
-        for agent, runner in ((SINGLE, run_single), (TEAM, run_the_team)):
-            if args.only and agent != args.only:
-                continue
-            result = runner(scenario)
-            results.append(result)
-            mark = "ok " if result.passed else "bad"
-            print(
-                f"{mark} {agent:12} {scenario.scenario_id:26} "
-                f"steps {result.steps:2} tokens {result.tokens:6} {result.seconds:5.0f}s"
-            )
-            for reason in result.reasons:
-                print(f"      {reason}")
+    results = asyncio.run(run_everything(scenarios, args.only))
 
-    summaries = [
-        summarise(results, agent)
-        for agent in (SINGLE, TEAM)
-        if any(r.agent == agent for r in results)
-    ]
+    ran = {result.agent for result in results}
+    summaries = [summarise(results, agent) for agent in (SINGLE, TEAM) if agent in ran]
     append_to_report(summaries, results, Path("docs/eval_report.md"))
     print()
     print(comparison_table(summaries))
