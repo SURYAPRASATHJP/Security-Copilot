@@ -137,3 +137,19 @@ def test_no_log_line_leaks_the_api_key(wired, settings):
     wired([FakeCompletion("safe")])
     llm_client.ask_llm(QUESTION)
     assert settings.groq_api_key not in settings.llm_call_log.read_text(encoding="utf-8")
+
+
+def test_waiting_out_a_rate_limit_is_not_counted_as_latency(wired, no_backoff, settings):
+    wired([rate_limited("0"), rate_limited("0"), FakeCompletion("eventually")])
+    llm_client.ask_llm(QUESTION, prompt_name="retried")
+
+    record = json.loads(settings.llm_call_log.read_text(encoding="utf-8").strip())
+    assert record["latency_seconds"] <= record["elapsed_seconds"]
+    assert record["latency_seconds"] >= 0
+
+
+def test_a_call_with_no_retries_reports_the_same_two_times(wired, settings):
+    wired([FakeCompletion("straight through")])
+    llm_client.ask_llm(QUESTION, prompt_name="clean")
+    record = json.loads(settings.llm_call_log.read_text(encoding="utf-8").strip())
+    assert abs(record["elapsed_seconds"] - record["latency_seconds"]) < 0.05

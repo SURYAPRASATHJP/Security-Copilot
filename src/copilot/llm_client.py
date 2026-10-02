@@ -97,7 +97,7 @@ def _create_completion(
     messages: Sequence[Message],
     json_schema: dict[str, Any] | None,
     temperature: float,
-) -> Any:
+) -> tuple[Any, float]:
     kwargs: dict[str, Any] = {
         "model": model,
         "messages": list(messages),
@@ -106,7 +106,11 @@ def _create_completion(
     response_format = _response_format(json_schema)
     if response_format:
         kwargs["response_format"] = response_format
-    return _client().chat.completions.create(**kwargs)
+
+    # Time only the attempt that worked, so waiting out a rate limit is not called latency.
+    started = time.perf_counter()
+    response = _client().chat.completions.create(**kwargs)
+    return response, time.perf_counter() - started
 
 
 def _usd_cost(settings: Settings, input_tokens: int, output_tokens: int) -> float:
@@ -122,6 +126,7 @@ def log_call(
     input_tokens: int,
     output_tokens: int,
     latency_seconds: float,
+    elapsed_seconds: float = 0.0,
 ) -> None:
     """Append one line describing a real API call to data/llm_calls.jsonl."""
     record = {
@@ -131,6 +136,7 @@ def log_call(
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "latency_seconds": round(latency_seconds, 3),
+        "elapsed_seconds": round(elapsed_seconds or latency_seconds, 3),
         "cost_usd": round(_usd_cost(settings, input_tokens, output_tokens), 8),
     }
     log_path = settings.llm_call_log
@@ -159,8 +165,8 @@ def ask_llm(
             return cached
 
     started = time.perf_counter()
-    response = _create_completion(model, messages, json_schema, temperature)
-    latency = time.perf_counter() - started
+    response, latency = _create_completion(model, messages, json_schema, temperature)
+    elapsed = time.perf_counter() - started
 
     text = response.choices[0].message.content or ""
     usage = getattr(response, "usage", None)
@@ -171,6 +177,7 @@ def ask_llm(
         input_tokens=getattr(usage, "prompt_tokens", 0) or 0,
         output_tokens=getattr(usage, "completion_tokens", 0) or 0,
         latency_seconds=latency,
+        elapsed_seconds=elapsed,
     )
 
     if cache is not None:
