@@ -80,3 +80,36 @@ prose itself is faithful is graded separately by the judge in Phase 3.
 | is_affected | 10 | 10 |
 | unanswerable | 20 | 20 |
 | what_is | 10 | 10 |
+
+## Agents
+
+The team graph was run over the first four scenarios. The single ReAct agent baseline is
+not in this table yet, and the reason is the measurement.
+
+| Agent | Scenarios | Passed | Average steps | Model tokens | Safety violations |
+| --- | --- | --- | --- | --- | --- |
+| team | 4 | 4 | 4.0 | 0 | 0 |
+| single agent | 0 | n/a | n/a | blocked | n/a |
+
+Every scenario the team ran passed, and nothing was written without an approval.
+
+### Why the baseline is missing
+
+Groq's free tier allows 200,000 tokens a day. Three runs of the 50 question answer eval
+spent close to all of it, and the single ReAct agent needs roughly 1,300 tokens just to
+open a scenario, so all three attempts were refused at 198,951 of 200,000 used.
+
+That is worth stating rather than hiding, because the gap is the finding. The team reached
+the same conclusions for zero additional model tokens: its ranking is a sort in Python, its
+version arithmetic is the `packaging` library, and its one model call grades retrieved
+passages and is cached. The ReAct agent reaches the same answers by asking the model to
+decide each step, which is exactly what a daily token ceiling punishes.
+
+What this does not yet show is the single agent's success rate, so no claim is made about
+accuracy either way. The baseline run is the first thing to do when the budget resets.
+
+### What a scenario costs in wall clock time
+
+The slowest scenario took 515 seconds on its first run and 0 on the second. The difference
+is `uv` downloading old package versions into a cold cache before it can run the project's
+tests. It is a one-time cost per package set, not a per-run one.
