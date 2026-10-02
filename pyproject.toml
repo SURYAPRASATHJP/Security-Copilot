@@ -35,13 +35,37 @@ app = [
     "streamlit>=1.41",
     "pandas>=2.2",
 ]
+tracing = [
+    "arize-phoenix-otel>=0.6",
+    "openinference-instrumentation-openai>=0.1",
+    "openinference-instrumentation-langchain>=0.1",
+]
+evals = [
+    "ragas>=0.3",
+    # ragas 0.3 still imports a module that langchain-community 0.4 removed.
+    "langchain-community<0.4",
+]
+ml = [
+    "scikit-learn>=1.5",
+    "transformers>=4.46",
+    "datasets>=3.0",
+    "mlflow>=2.18",
+    "dvc>=3.56",
+    "evidently>=0.5",
+    "pandera>=0.21",
+    "matplotlib>=3.9",
+]
+serving = [
+    "slowapi>=0.1.9",
+    "huggingface-hub>=0.26",
+]
 dev = [
     "pytest>=8.3",
     "ruff>=0.8",
 ]
 
 [tool.uv]
-default-groups = ["core", "rag", "agents", "app", "dev"]
+default-groups = ["core", "rag", "agents", "app", "tracing", "evals", "ml", "serving", "dev"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/copilot"]
