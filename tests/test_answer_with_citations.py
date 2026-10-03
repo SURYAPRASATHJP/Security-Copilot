@@ -17,6 +17,7 @@ from copilot.rag.answer_with_citations import (
     format_findings,
     format_passages,
     parse_reply,
+    recover_failed_generation,
     relevant_passages,
     verify_citations,
 )
@@ -166,7 +167,7 @@ def test_the_answer_records_the_passages_and_the_prompt_version(canned):
     canned(reply("Upgrade to 2.31.0.", ["GHSA-j8r2"]))
     answer = answer_question("Which version fixes it?", results=[PASSAGE])
     assert [p.chunk_id for p in answer.passages] == [PASSAGE.chunk_id]
-    assert answer.prompt_version == "2"
+    assert answer.prompt_version == "3"
 
 
 def test_an_unanswerable_question_can_come_back_refused(canned):
@@ -228,4 +229,49 @@ def test_a_general_security_answer_is_not_a_refusal():
 def test_the_prompt_is_at_version_two():
     from copilot.prompt_loader import prompt_version
 
-    assert prompt_version("answer_question") == "2"
+    assert prompt_version("answer_question") == "3"
+
+
+def bad_request(failed_generation=None):
+    import httpx
+    from openai import BadRequestError
+
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    body = {"error": {"code": "json_validate_failed"}}
+    if failed_generation is not None:
+        body["error"]["failed_generation"] = failed_generation
+    return BadRequestError(
+        "failed to generate json",
+        response=httpx.Response(400, request=request, json=body),
+        body=body,
+    )
+
+
+def test_a_refusal_written_as_bare_text_is_recovered():
+    recovered = parse_reply(recover_failed_generation(bad_request(OUT_OF_SCOPE_TEXT)))
+    assert recovered.answer == OUT_OF_SCOPE_TEXT
+    assert recovered.refused is True
+
+
+def test_a_failure_with_nothing_to_recover_becomes_a_refusal():
+    assert parse_reply(recover_failed_generation(bad_request())).refused is True
+
+
+def test_an_empty_failed_generation_becomes_a_refusal():
+    assert parse_reply(recover_failed_generation(bad_request("   "))).refused is True
+
+
+def test_a_schema_rejection_does_not_crash_the_answer_path(monkeypatch):
+    def refuse_outside_the_schema(messages, json_schema=None, temperature=0, **kwargs):
+        raise bad_request(OUT_OF_SCOPE_TEXT)
+
+    monkeypatch.setattr(llm_client, "ask_llm", refuse_outside_the_schema)
+    answer = answer_question("what is the weather?", results=[PASSAGE])
+    assert answer.refused is True
+    assert answer.answer == OUT_OF_SCOPE_TEXT
+
+
+def test_the_prompt_is_at_version_three():
+    from copilot.prompt_loader import prompt_version
+
+    assert prompt_version("answer_question") == "3"

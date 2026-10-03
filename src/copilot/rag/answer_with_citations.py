@@ -1,6 +1,7 @@
 import json
 from collections.abc import Sequence
 
+from openai import BadRequestError
 from pydantic import BaseModel, Field, ValidationError
 
 from copilot import llm_client
@@ -129,6 +130,21 @@ def verify_citations(
     return answer.model_copy(update={"citations": kept, "unverified_citations": invented})
 
 
+def recover_failed_generation(error: BadRequestError) -> str:
+    """Pull the text out of a reply the model wrote outside its schema, or give up cleanly."""
+    body = getattr(error, "body", None)
+    failed = (
+        (body or {}).get("error", {}).get("failed_generation") if isinstance(body, dict) else None
+    )
+    if not isinstance(failed, str) or not failed.strip():
+        return json.dumps(
+            {"answer": REFUSAL_TEXT, "citations": [], "affected_packages": [], "confidence": 0.0}
+        )
+    return json.dumps(
+        {"answer": failed.strip(), "citations": [], "affected_packages": [], "confidence": 0.0}
+    )
+
+
 def parse_reply(reply: str) -> CitedAnswer:
     try:
         return CitedAnswer.model_validate(json.loads(reply))
@@ -149,11 +165,15 @@ def answer_question(
         candidates = hybrid_search(question, strategy, CANDIDATES, package)
         results = relevant_passages(rerank_results(question, candidates, PASSAGES))
 
-    reply = llm_client.ask_llm(
-        build_messages(question, findings, results),
-        json_schema=ANSWER_SCHEMA,
-        prompt_name=PROMPT_NAME,
-    )
+    try:
+        reply = llm_client.ask_llm(
+            build_messages(question, findings, results),
+            json_schema=ANSWER_SCHEMA,
+            prompt_name=PROMPT_NAME,
+        )
+    except BadRequestError as error:
+        # A refusal is sometimes emitted as bare text, which schema mode rejects outright.
+        reply = recover_failed_generation(error)
     answer = parse_reply(reply)
     verified = verify_citations(answer, findings, results)
     return verified.model_copy(
