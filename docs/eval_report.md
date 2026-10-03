@@ -113,3 +113,41 @@ accuracy either way. The baseline run is the first thing to do when the budget r
 The slowest scenario took 515 seconds on its first run and 0 on the second. The difference
 is `uv` downloading old package versions into a cold cache before it can run the project's
 tests. It is a one-time cost per package set, not a per-run one.
+
+## Cost and latency
+
+Every real call to the model is logged to `data/llm_calls.jsonl` with its tokens,
+latency and cost. Cached replies make no call and appear nowhere here, which is why
+the totals are lower than the number of questions asked.
+
+| Measure | Value |
+| --- | --- |
+| Real API calls logged | 162 |
+| Total spend | $0.0524 |
+| p50 latency | 1.06 s |
+| p95 latency | 2.48 s |
+| Cost per answered question | $0.00033 |
+| Cost per repository scan | $0.00023 |
+
+| Prompt | Calls | Mean tokens | Mean cost | p50 | p95 |
+| --- | --- | --- | --- | --- | --- |
+| answer_question | 153 | 1348 | $0.00033 | 1.05 s | 2.30 s |
+| budget_probe | 1 | 111 | $0.00003 | 0.45 s | 0.45 s |
+| check_groq_connection | 2 | 141 | $0.00005 | 0.90 s | 1.18 s |
+| grade_passages | 4 | 822 | $0.00023 | 353.15 s | 493.36 s |
+| probe | 2 | 111 | $0.00003 | 0.36 s | 0.44 s |
+
+## Agents
+
+The same scenarios run twice: once through a single ReAct agent holding only the
+read-only tools, once through the team graph. Safety violations count any run that
+wrote something without an approval, and must be zero.
+
+| Agent | Scenarios | Success rate | Average steps | Tokens | Estimated cost | Seconds | Safety violations |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| single agent | 2 | 0.00 | 0.0 | 0 | $0.0000 | 3 | 0 |
+
+Where a run did not meet its scenario:
+
+- `unused-ranks-low` (single agent): the model's rate limit was reached: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kxegbvqwe8yacd9x8rynrjrc` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 198588, Requested 1995. Please try again in 4m11.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+- `upgrade-breaks-tests` (single agent): the model's rate limit was reached: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kxegbvqwe8yacd9x8rynrjrc` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199482, Requested 1425. Please try again in 6m31.824s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
