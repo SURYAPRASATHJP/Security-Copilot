@@ -133,3 +133,38 @@ def test_a_clean_run_says_so_without_overclaiming(tmp_path):
     path = tmp_path / "red_team_report.md"
     write_report(results, path)
     assert "not a guarantee" in path.read_text()
+
+
+def test_an_attack_the_budget_stopped_is_recorded_as_not_run():
+    import httpx
+    from openai import RateLimitError
+
+    from red_team.run_red_team import not_run
+
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    error = RateLimitError("capped", response=httpx.Response(429, request=request), body=None)
+    result = not_run(an_attack(), GUARDED, error)
+    assert result.ran is False
+    assert "not run" in result.stopped_by
+
+
+def test_an_attack_that_never_ran_counts_in_neither_column():
+    results = [
+        AttackResult(attack_id="a", vector="v", owasp="LLM01", mode=GUARDED, blocked=True),
+        AttackResult(attack_id="b", vector="v", owasp="LLM01", mode=GUARDED, ran=False),
+    ]
+    summary = summarise(results, GUARDED)
+    assert summary.attacks == 1
+    assert summary.blocked == 1
+    assert summary.not_run == 1
+    assert summary.block_rate == 1.0
+
+
+def test_a_run_that_was_cut_short_says_so_in_the_report(tmp_path):
+    results = [
+        AttackResult(attack_id="a", vector="v", owasp="LLM01", mode=GUARDED, blocked=True),
+        AttackResult(attack_id="b", vector="v", owasp="LLM01", mode=GUARDED, ran=False),
+    ]
+    path = tmp_path / "red_team_report.md"
+    write_report(results, path)
+    assert "1 not run" in path.read_text()

@@ -3,6 +3,7 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
+from openai import RateLimitError
 from pydantic import BaseModel, Field
 
 from copilot import llm_client
@@ -22,6 +23,7 @@ class AttackResult(BaseModel):
     owasp: str
     mode: str
     blocked: bool = False
+    ran: bool = True
     stopped_by: str = ""
     answer: str = ""
     leaked: list[str] = Field(default_factory=list)
@@ -31,6 +33,7 @@ class ModeSummary(BaseModel):
     mode: str
     attacks: int = 0
     blocked: int = 0
+    not_run: int = 0
 
     @property
     def block_rate(self) -> float:
@@ -68,6 +71,18 @@ def judge(attack: Attack, answer: str, refused: bool, stopped_by: str) -> Attack
     )
 
 
+def not_run(attack: Attack, mode: str, error: Exception) -> AttackResult:
+    """Record an attack the budget stopped us reaching, rather than losing the whole run."""
+    return AttackResult(
+        attack_id=attack.attack_id,
+        vector=attack.vector,
+        owasp=attack.owasp,
+        mode=mode,
+        ran=False,
+        stopped_by=f"not run: {type(error).__name__}",
+    )
+
+
 def run_guarded(attack: Attack) -> AttackResult:
     verdict = check_input(attack.prompt, use_model=False)
     if verdict.blocked:
@@ -75,7 +90,10 @@ def run_guarded(attack: Attack) -> AttackResult:
             update={"mode": GUARDED}
         )
 
-    answer = answer_question(attack.prompt)
+    try:
+        answer = answer_question(attack.prompt)
+    except RateLimitError as error:
+        return not_run(attack, GUARDED, error)
     return judge(attack, answer.answer, answer.refused, stopped_by="").model_copy(
         update={"mode": GUARDED}
     )
@@ -83,21 +101,30 @@ def run_guarded(attack: Attack) -> AttackResult:
 
 def run_bare(attack: Attack) -> AttackResult:
     """Ask the model with no rules and no guards, which is the number to improve on."""
-    reply = llm_client.ask_llm(
-        [{"role": "user", "content": attack.prompt}], prompt_name="red_team_bare"
-    )
+    try:
+        reply = llm_client.ask_llm(
+            [{"role": "user", "content": attack.prompt}], prompt_name="red_team_bare"
+        )
+    except RateLimitError as error:
+        return not_run(attack, BARE, error)
     return judge(attack, reply, refused=False, stopped_by="").model_copy(update={"mode": BARE})
 
 
 def summarise(results: Sequence[AttackResult], mode: str) -> ModeSummary:
     mine = [result for result in results if result.mode == mode]
-    return ModeSummary(mode=mode, attacks=len(mine), blocked=sum(1 for r in mine if r.blocked))
+    ran = [result for result in mine if result.ran]
+    return ModeSummary(
+        mode=mode,
+        attacks=len(ran),
+        blocked=sum(1 for result in ran if result.blocked),
+        not_run=len(mine) - len(ran),
+    )
 
 
 def by_group(results: Sequence[AttackResult], mode: str, field: str) -> dict[str, tuple[int, int]]:
     groups: dict[str, tuple[int, int]] = {}
     for result in results:
-        if result.mode != mode:
+        if result.mode != mode or not result.ran:
             continue
         key = getattr(result, field)
         blocked, total = groups.get(key, (0, 0))
@@ -120,8 +147,11 @@ def write_report(results: Sequence[AttackResult], path: Path) -> None:
         "| --- | --- | --- | --- |",
     ]
     for summary in ran:
+        label = summary.mode
+        if summary.not_run:
+            label = f"{summary.mode} ({summary.not_run} not run)"
         lines.append(
-            f"| {summary.mode} | {summary.attacks} | {summary.blocked} | {summary.block_rate:.2%} |"
+            f"| {label} | {summary.attacks} | {summary.blocked} | {summary.block_rate:.2%} |"
         )
 
     for summary in ran:
@@ -149,7 +179,7 @@ def write_report(results: Sequence[AttackResult], path: Path) -> None:
         for key, (blocked, total) in sorted(by_group(results, summary.mode, "vector").items()):
             lines.append(f"| {key} | {blocked} | {total} |")
 
-    leaked = [r for r in results if r.mode == GUARDED and not r.blocked]
+    leaked = [r for r in results if r.mode == GUARDED and r.ran and not r.blocked]
     lines.extend(["", "## What still gets through", ""])
     if leaked:
         for result in leaked:
@@ -182,6 +212,8 @@ def main() -> int:
             result = run_bare(attack) if mode == BARE else run_guarded(attack)
             results.append(result)
             mark = "blocked" if result.blocked else "GOT THROUGH"
+            if not result.ran:
+                mark = "not run"
             print(f"{mode:20} {index:3}/{len(attacks)} {mark:12} {attack.attack_id}")
             if result.stopped_by and result.stopped_by != "nothing":
                 print(f"{'':25}stopped by {result.stopped_by}")
