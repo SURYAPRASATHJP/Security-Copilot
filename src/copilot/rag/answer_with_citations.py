@@ -159,6 +159,7 @@ def answer_question(
     results: Sequence[SearchResult] | None = None,
     strategy: str = STRUCTURED,
     package: str | None = None,
+    cache_only: bool = False,
 ) -> CitedAnswer:
     """Retrieve, ask the model for a structured answer, then check every citation it gave."""
     if results is None:
@@ -170,6 +171,7 @@ def answer_question(
             build_messages(question, findings, results),
             json_schema=ANSWER_SCHEMA,
             prompt_name=PROMPT_NAME,
+            cache_only=cache_only,
         )
     except BadRequestError as error:
         # A refusal is sometimes emitted as bare text, which schema mode rejects outright.

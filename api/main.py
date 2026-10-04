@@ -9,6 +9,9 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from langgraph.types import Command
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from copilot.agents.agent_memory import short_term_checkpointer
 from copilot.agents.human_approval import APPROVED, EDITED, REJECTED
@@ -21,15 +24,27 @@ from copilot.dependencies.check_my_dependencies import (
     index_local_advisories,
 )
 from copilot.dependencies.read_requirements_file import read_requirements_text
+from copilot.guardrails.demo_limits import (
+    ASK_PER_MINUTE,
+    SCAN_PER_HOUR,
+    budget_state,
+    demo_mode,
+    repository_is_allowed,
+)
+from copilot.llm_client import BudgetExhaustedError
 from copilot.rag.answer_with_citations import CitedAnswer, answer_question
 from copilot.rag.route_question import wants_dependency_check
 from copilot.rag.split_into_chunks import STRUCTURED
 from copilot.settings import MissingGroqKeyError, get_settings
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Security Copilot",
     description="Checks Python dependencies against public advisories and explains them.",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 _advisory_index: dict | None = None
 
@@ -103,11 +118,15 @@ def run_check(requirements_text: str) -> DependencyReport:
 def health() -> dict[str, object]:
     settings = get_settings()
     corpus = settings.data_dir / "processed" / "advisories.jsonl"
+    budget = budget_state()
     return {
         "status": "ok",
         "model": settings.model_name,
         "corpus_built": corpus.exists(),
         "groq_key_present": settings.has_groq_key(),
+        "demo_mode": demo_mode(),
+        "tokens_left_today": budget.remaining,
+        "budget_note": budget.summary,
     }
 
 
@@ -123,19 +142,26 @@ async def check_uploaded_file(file: UploadFile) -> CheckResponse:
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(request: AskRequest) -> AskResponse:
+@limiter.limit(ASK_PER_MINUTE)
+def ask(body: AskRequest, request: Request) -> AskResponse:
     findings: list[Finding] = []
     checked = False
-    if request.requirements and wants_dependency_check(request.question):
-        findings = run_check(request.requirements).findings
+    if body.requirements and wants_dependency_check(body.question):
+        findings = run_check(body.requirements).findings
         checked = True
 
+    budget = budget_state()
     try:
         answer: CitedAnswer = answer_question(
-            request.question, findings=findings, strategy=request.strategy
+            body.question,
+            findings=findings,
+            strategy=body.strategy,
+            cache_only=budget.exhausted,
         )
     except MissingGroqKeyError as error:
         raise HTTPException(503, str(error)) from error
+    except BudgetExhaustedError as error:
+        raise HTTPException(503, f"{error}. {budget.summary}.") from error
 
     return AskResponse(
         answer=answer.answer,
@@ -190,10 +216,16 @@ class ApproveRequest(BaseModel):
 
 
 @app.post("/scan-repo")
-def scan_repo(request: ScanRepoRequest) -> StreamingResponse:
-    thread_id = request.thread_id or str(uuid4())
+@limiter.limit(SCAN_PER_HOUR)
+def scan_repo(body: ScanRepoRequest, request: Request) -> StreamingResponse:
+    if not repository_is_allowed(body.repository):
+        raise HTTPException(
+            403,
+            "this demo only scans the repository built for it, clone the project to scan your own",
+        )
+    thread_id = body.thread_id or str(uuid4())
     config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 25}
-    state = {"repository": request.repository, "steps": 0, "messages": []}
+    state = {"repository": body.repository, "steps": 0, "messages": []}
 
     def steps() -> Iterator[str]:
         yield json.dumps({"event": "started", "thread_id": thread_id}) + "\n"

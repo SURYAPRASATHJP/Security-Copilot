@@ -11,6 +11,17 @@ from copilot.evals.build_golden_questions import GoldenQuestion
 from copilot.rag.answer_with_citations import REFUSAL_TEXT, CitedAnswer
 
 
+def outcome(kind, answerable, refused, correct, wrong=()):
+    return AnswerOutcome(
+        question_id=f"{kind}:{refused}:{correct}",
+        kind=kind,
+        answerable=answerable,
+        refused=refused,
+        correct=correct,
+        wrong_citations=list(wrong),
+    )
+
+
 def question(kind, expected, ids=("GHSA-a",), answerable=True):
     return GoldenQuestion(
         question_id=f"{kind}:1",
@@ -139,16 +150,25 @@ def test_the_table_names_every_measure():
         assert label in table
 
 
-def test_the_report_is_appended_rather_than_overwritten(tmp_path):
-    path = tmp_path / "eval_report.md"
-    path.write_text("# Evaluation report\n\n## Retrieval\n\nexisting table\n")
-    outcomes = [
-        AnswerOutcome(
-            question_id="1", kind="fixed_version", answerable=True, refused=False, correct=True
-        )
-    ]
-    append_to_report(summarise(outcomes, 1.0), path, outcomes)
-    text = path.read_text()
-    assert "existing table" in text
-    assert "## Answers" in text
-    assert "| fixed_version | 1 | 1 |" in text
+def test_the_answers_section_is_written_with_its_numbers(tmp_path, monkeypatch):
+    from copilot.evals import report as eval_report
+
+    monkeypatch.setattr(eval_report, "sections_dir", lambda: tmp_path / "sections")
+    outcomes = [outcome("fixed_version", answerable=True, refused=False, correct=True)]
+    append_to_report(summarise(outcomes, 1.0), tmp_path / "eval_report.md", outcomes)
+
+    body = eval_report.read_section(eval_report.ANSWERS)
+    assert "## Answers" in body
+    assert "| fixed_version | 1 | 1 |" in body
+
+
+def test_re_running_the_answer_eval_replaces_its_section(tmp_path, monkeypatch):
+    from copilot.evals import report as eval_report
+
+    monkeypatch.setattr(eval_report, "sections_dir", lambda: tmp_path / "sections")
+    report_path = tmp_path / "eval_report.md"
+    for _ in range(3):
+        outcomes = [outcome("fixed_version", answerable=True, refused=False, correct=True)]
+        append_to_report(summarise(outcomes, 1.0), report_path, outcomes)
+
+    assert report_path.read_text().count("## Answers") == 1

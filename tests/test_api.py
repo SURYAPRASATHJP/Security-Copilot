@@ -62,7 +62,7 @@ def canned_answer(monkeypatch):
     monkeypatch.setattr(
         main,
         "answer_question",
-        lambda question, findings=(), strategy="structured": answer_with_citations.answer_question(
+        lambda question, findings=(), **kwargs: answer_with_citations.answer_question(
             question, findings=findings, results=[PASSAGE]
         ),
     )

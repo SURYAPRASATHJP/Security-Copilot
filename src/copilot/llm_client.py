@@ -13,6 +13,11 @@ from copilot.settings import Settings, get_settings, require_groq_key
 
 Message = dict[str, str]
 
+
+class BudgetExhaustedError(RuntimeError):
+    pass
+
+
 _BACKOFF = wait_exponential(multiplier=1, min=1, max=30)
 
 
@@ -152,6 +157,7 @@ def ask_llm(
     prompt_name: str = "unnamed",
     model: str | None = None,
     use_cache: bool = True,
+    cache_only: bool = False,
 ) -> str:
     """Return the model's reply text, served from the disk cache when it has been asked before."""
     settings = get_settings()
@@ -163,6 +169,11 @@ def ask_llm(
         cached = cache.get(key)
         if isinstance(cached, str):
             return cached
+
+    if cache_only:
+        raise BudgetExhaustedError(
+            "today's token budget is spent, so only a question asked before can be answered"
+        )
 
     started = time.perf_counter()
     response, latency = _create_completion(model, messages, json_schema, temperature)
