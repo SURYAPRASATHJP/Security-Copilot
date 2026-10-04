@@ -94,8 +94,11 @@ async def triage_repository(
     result: dict = {"messages": []}
 
     try:
-        # Each step is a model call and its tool call, so the recursion limit is twice the steps.
-        result = await agent.ainvoke(state, config={"recursion_limit": max_steps * 2})
+        # Streaming keeps the last state, so a run that is cut short still reports what it spent.
+        async for snapshot in agent.astream(
+            state, config={"recursion_limit": max_steps * 2}, stream_mode="values"
+        ):
+            result = snapshot
     except GraphRecursionError:
         stopped_early = f"stopped at the {max_steps} step limit"
     except TokenBudgetExceededError as error:
