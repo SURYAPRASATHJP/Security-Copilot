@@ -14,7 +14,7 @@ from red_team.build_attacks import Attack, read_attacks
 
 GUARDED = "with guardrails"
 BARE = "without guardrails"
-PAUSE_BETWEEN_CALLS = 8.0
+PAUSE_BETWEEN_CALLS = 14.0
 
 
 class AttackResult(BaseModel):

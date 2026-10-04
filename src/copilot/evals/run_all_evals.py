@@ -18,7 +18,7 @@ from copilot.evals.retrieval_metrics import write_report as write_retrieval
 from copilot.rag.answer_with_citations import answer_question
 from copilot.settings import get_settings
 
-PAUSE_BETWEEN_CALLS = 8.0
+PAUSE_BETWEEN_CALLS = 14.0
 
 
 def run_retrieval() -> None:

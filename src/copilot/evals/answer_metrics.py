@@ -18,8 +18,9 @@ from copilot.evals.build_golden_questions import (
 from copilot.rag.answer_with_citations import CitedAnswer, answer_question
 from copilot.settings import get_settings
 
-# The free Groq tier allows 8K tokens a minute, and one answer costs roughly 1.5K.
-SECONDS_BETWEEN_CALLS = 8.0
+# The free tier allows 8K tokens a minute and one answer costs about 1.5K, so fewer than
+# five a minute. Pacing by request count instead of token rate just invites backoff.
+SECONDS_BETWEEN_CALLS = 14.0
 
 YES = re.compile(r"\b(yes|is affected|are affected|vulnerable)\b", re.IGNORECASE)
 NO = re.compile(r"\b(no|not affected|is not affected|unaffected|safe)\b", re.IGNORECASE)
