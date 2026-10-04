@@ -1,0 +1,91 @@
+stages:
+  download:
+    cmd: uv run python -m copilot.data_collection.download_osv_advisories
+    deps:
+      - src/copilot/data_collection/download_osv_advisories.py
+    outs:
+      - data/raw/osv_pypi
+
+  scope:
+    cmd: uv run python -m copilot.data_collection.scope_to_top_packages
+    deps:
+      - data/raw/osv_pypi
+      - src/copilot/data_collection/advisory.py
+      - src/copilot/data_collection/scope_to_top_packages.py
+    outs:
+      - data/processed/scoped_advisories.jsonl
+      - data/processed/top_packages.json
+
+  enrich:
+    cmd: >-
+      uv run python -m copilot.data_collection.fetch_nvd_details &&
+      uv run python -m copilot.data_collection.fetch_exploit_signals
+    deps:
+      - data/processed/scoped_advisories.jsonl
+      - src/copilot/data_collection/fetch_nvd_details.py
+      - src/copilot/data_collection/fetch_exploit_signals.py
+    outs:
+      - data/raw/nvd
+      - data/raw/epss.json
+      - data/raw/kev.json
+
+  merge:
+    cmd: uv run python -m copilot.data_collection.merge_into_one_record
+    deps:
+      - data/processed/scoped_advisories.jsonl
+      - data/raw/nvd
+      - data/raw/epss.json
+      - data/raw/kev.json
+      - src/copilot/data_collection/merge_into_one_record.py
+    outs:
+      - data/processed/advisories.jsonl
+
+  chunk:
+    cmd: uv run python -m copilot.rag.split_into_chunks
+    deps:
+      - data/processed/advisories.jsonl
+      - src/copilot/rag/split_into_chunks.py
+    outs:
+      - data/processed/chunks_fixed.jsonl
+      - data/processed/chunks_structured.jsonl
+
+  index:
+    cmd: uv run python -m copilot.rag.build_search_index
+    deps:
+      - data/processed/chunks_fixed.jsonl
+      - data/processed/chunks_structured.jsonl
+      - src/copilot/rag/build_search_index.py
+    outs:
+      - .chroma
+      - data/processed/bm25_fixed.pkl
+      - data/processed/bm25_structured.pkl
+
+  golden_questions:
+    cmd: uv run python -m copilot.evals.build_golden_questions
+    deps:
+      - data/processed/advisories.jsonl
+      - src/copilot/evals/build_golden_questions.py
+    outs:
+      - data/eval/golden_questions.jsonl
+
+  training_data:
+    cmd: uv run python -m copilot.ml.build_training_data
+    deps:
+      - data/eval/golden_questions.jsonl
+      - red_team/attack_prompts.jsonl
+      - src/copilot/ml/build_training_data.py
+    outs:
+      - data/ml/train.csv
+      - data/ml/test.csv
+
+  train:
+    cmd: uv run python -m copilot.ml.train_baseline_classifier --no-mlflow
+    deps:
+      - data/ml/train.csv
+      - data/ml/test.csv
+      - src/copilot/ml/train_baseline_classifier.py
+    outs:
+      - docs/learning_curve.png
+    metrics:
+      - data/ml/baseline_scores.json:
+          cache: false

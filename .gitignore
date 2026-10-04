@@ -13,6 +13,7 @@ dist/
 data/
 .chroma/
 mlruns/
+mlflow.db
 .cache/
 .dvc/cache/
 
