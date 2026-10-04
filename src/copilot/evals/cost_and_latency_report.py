@@ -4,6 +4,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from copilot.evals import report as eval_report
 from copilot.settings import get_settings
 
 ANSWER_PROMPT = "answer_question"
@@ -133,20 +134,25 @@ def report_table(report: CostReport) -> str:
     return "\n".join(lines)
 
 
+def cost_section(report: CostReport) -> str:
+    return "\n".join(
+        [
+            "## Cost and latency",
+            "",
+            "Every real call to the model is logged to `data/llm_calls.jsonl` with its tokens,",
+            "latency and cost. Latency is the attempt that succeeded, so time spent waiting out",
+            "a rate limit is not counted as the model being slow. Cached replies make no call",
+            "and appear nowhere here, which is why the totals are lower than the questions",
+            "asked.",
+            "",
+            report_table(report),
+        ]
+    )
+
+
 def append_to_report(report: CostReport, path: Path) -> None:
-    lines = [
-        "",
-        "## Cost and latency",
-        "",
-        "Every real call to the model is logged to `data/llm_calls.jsonl` with its tokens,",
-        "latency and cost. Cached replies make no call and appear nowhere here, which is why",
-        "the totals are lower than the number of questions asked.",
-        "",
-        report_table(report),
-        "",
-    ]
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    path.write_text(existing.rstrip("\n") + "\n" + "\n".join(lines), encoding="utf-8")
+    eval_report.write_section(eval_report.COST, cost_section(report))
+    eval_report.assemble(path)
 
 
 def main() -> int:

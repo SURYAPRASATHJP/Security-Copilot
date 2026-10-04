@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from copilot.evals import report as eval_report
 from copilot.evals.build_golden_questions import (
     ANSWER,
     FIXED_VERSION,
@@ -129,13 +130,12 @@ def answer_table(score: AnswerScore) -> str:
     )
 
 
-def append_to_report(score: AnswerScore, path: Path, outcomes: Sequence[AnswerOutcome]) -> None:
+def answers_section(score: AnswerScore, outcomes: Sequence[AnswerOutcome]) -> str:
     by_kind: dict[str, list[AnswerOutcome]] = {}
     for outcome in outcomes:
         by_kind.setdefault(outcome.kind, []).append(outcome)
 
     lines = [
-        "",
         "## Answers",
         "",
         f"{score.questions} questions from the answer suite, {score.answerable} with a known",
@@ -153,10 +153,12 @@ def append_to_report(score: AnswerScore, path: Path, outcomes: Sequence[AnswerOu
     ]
     for kind, group in sorted(by_kind.items()):
         lines.append(f"| {kind} | {sum(1 for o in group if o.correct)} | {len(group)} |")
-    lines.append("")
+    return "\n".join(lines)
 
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    path.write_text(existing.rstrip("\n") + "\n" + "\n".join(lines), encoding="utf-8")
+
+def append_to_report(score: AnswerScore, path: Path, outcomes: Sequence[AnswerOutcome]) -> None:
+    eval_report.write_section(eval_report.ANSWERS, answers_section(score, outcomes))
+    eval_report.assemble(path)
 
 
 def main() -> int:

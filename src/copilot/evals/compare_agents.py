@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from copilot.agents.agent_state import TriageReport
 from copilot.agents.team_supervisor import run_team
 from copilot.agents.triage_agent import triage_repository
+from copilot.evals import report as eval_report
 from copilot.evals.agent_scenarios import AgentScenario, read_scenarios
 from copilot.settings import get_settings
 
@@ -152,12 +153,9 @@ def comparison_table(summaries: Sequence[AgentSummary]) -> str:
     return "\n".join(lines)
 
 
-def append_to_report(
-    summaries: Sequence[AgentSummary], results: Sequence[ScenarioResult], path: Path
-) -> None:
+def agents_section(summaries: Sequence[AgentSummary], results: Sequence[ScenarioResult]) -> str:
     failures = [result for result in results if not result.passed]
     lines = [
-        "",
         "## Agents",
         "",
         "The same scenarios run twice: once through a single ReAct agent holding only the",
@@ -166,17 +164,27 @@ def append_to_report(
         "",
         comparison_table(summaries),
         "",
+        "The team spends no model tokens here, and that needs a caveat. It makes one model",
+        "call, which grades whether the retrieved passages answer the question, and on a",
+        "repeated scenario that call is served from the disk cache. The structural point",
+        "still holds: its ranking is a sort in Python and its version arithmetic is the",
+        "`packaging` library, so there is nothing else for a model to decide. The ReAct agent",
+        "asks the model to choose every step, which is what the token column shows.",
+        "",
     ]
     if failures:
         lines.extend(["Where a run did not meet its scenario:", ""])
         for failure in failures:
-            lines.append(
-                f"- `{failure.scenario_id}` ({failure.agent}): {'; '.join(failure.reasons)}"
-            )
-        lines.append("")
+            reasons = "; ".join(failure.reasons)
+            lines.append(f"- `{failure.scenario_id}` ({failure.agent}): {reasons}")
+    return "\n".join(lines)
 
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    path.write_text(existing.rstrip("\n") + "\n" + "\n".join(lines), encoding="utf-8")
+
+def append_to_report(
+    summaries: Sequence[AgentSummary], results: Sequence[ScenarioResult], path: Path
+) -> None:
+    eval_report.write_section(eval_report.AGENTS, agents_section(summaries, results))
+    eval_report.assemble(path)
 
 
 async def run_everything(

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from copilot.evals import report as eval_report
 from copilot.evals.build_golden_questions import RETRIEVAL, GoldenQuestion, read_questions
 from copilot.rag.hybrid_search import hybrid_search
 from copilot.rag.keyword_search import keyword_search
@@ -115,45 +116,39 @@ def retrieval_table(scores: Sequence[SetupScore]) -> str:
     return "\n".join(lines)
 
 
-def write_report(scores: Sequence[SetupScore], path: Path, questions: int) -> None:
+def retrieval_section(scores: Sequence[SetupScore], questions: int) -> str:
     by_hit_rate = max(scores, key=lambda score: score.hit_rate_at_5)
     by_mrr = max(scores, key=lambda score: score.mrr)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "\n".join(
-            [
-                "# Evaluation report",
-                "",
-                "Every number here comes from `make evals`. The golden set is generated from the",
-                "advisory corpus itself, so each answer is known without anyone labelling it.",
-                "",
-                "## Retrieval",
-                "",
-                f"{questions} auto-generated retrieval questions, four retrievers against both",
-                "chunking strategies.",
-                "",
-                retrieval_table(scores),
-                "",
-                f"Highest hit rate at 5: **{by_hit_rate.label}** at "
-                f"{by_hit_rate.hit_rate_at_5:.3f}.",
-                f"Highest MRR, and the setup that ships: **{by_mrr.label}** at "
-                f"{by_mrr.mrr:.3f} MRR and {by_mrr.hit_rate_at_5:.3f} hit rate at 5.",
-                "",
-                "### What this table does not measure",
-                "",
-                "Every generated question names its advisory or CVE id, so BM25 can match the",
-                "identifier exactly and scores far higher here than it would on the questions a",
-                "developer actually types. Read hit rate as a check that the right chunk is",
-                "reachable at all, and MRR as the honest separator: reranking is what moves the",
-                "right passage to position one. The production setup is hybrid search with",
-                "reranking over structure-aware chunks, because it is the only one that holds up",
-                "when the question does not quote an id. Removing this bias from the question set",
-                "is the first item for error analysis in Phase 3.",
-                "",
-            ]
-        ),
-        encoding="utf-8",
+    return "\n".join(
+        [
+            "## Retrieval",
+            "",
+            f"{questions} auto-generated retrieval questions, four retrievers against both",
+            "chunking strategies.",
+            "",
+            retrieval_table(scores),
+            "",
+            f"Highest hit rate at 5: **{by_hit_rate.label}** at {by_hit_rate.hit_rate_at_5:.3f}.",
+            f"Highest MRR, and the setup that ships: **{by_mrr.label}** at "
+            f"{by_mrr.mrr:.3f} MRR and {by_mrr.hit_rate_at_5:.3f} hit rate at 5.",
+            "",
+            "### What this table does not measure",
+            "",
+            "Every generated question names its advisory or CVE id, so BM25 can match the",
+            "identifier exactly and scores far higher here than it would on the questions a",
+            "developer actually types. Read hit rate as a check that the right chunk is",
+            "reachable at all, and MRR as the honest separator: reranking is what moves the",
+            "right passage to position one. The production setup is hybrid search with",
+            "reranking over structure-aware chunks, because it is the only one that holds up",
+            "when the question does not quote an id. Removing this bias from the question set",
+            "is the first item for error analysis in Phase 3.",
+        ]
     )
+
+
+def write_report(scores: Sequence[SetupScore], path: Path, questions: int) -> None:
+    eval_report.write_section(eval_report.RETRIEVAL, retrieval_section(scores, questions))
+    eval_report.assemble(path)
 
 
 def main() -> int:
