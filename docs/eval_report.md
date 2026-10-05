@@ -14,8 +14,8 @@ chunking strategies.
 | --- | --- | --- | --- | --- | --- |
 | bm25 | structured | 200 | 1.000 | 0.940 | 1 |
 | hybrid | structured | 200 | 1.000 | 0.887 | 4 |
-| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 48 |
-| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 63 |
+| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 50 |
+| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 68 |
 | bm25 | fixed | 200 | 0.515 | 0.473 | 1 |
 | hybrid | fixed | 200 | 0.515 | 0.345 | 4 |
 | vector | structured | 200 | 0.435 | 0.317 | 3 |
@@ -35,27 +35,6 @@ reranking over structure-aware chunks, because it is the only one that holds up
 when the question does not quote an id. Removing this bias from the question set
 is the first item for error analysis in Phase 3.
 
-## Answers
-
-1 questions from the answer suite, 1 with a known
-answer and 0 about packages and CVE numbers that do not exist.
-
-| Measure | Value | Of |
-| --- | --- | --- |
-| Answer accuracy | 1.000 | 1 of 1 answerable |
-| Refusal accuracy | 0.000 | 0 of 0 unanswerable |
-| Wrong citation rate | 0.000 | 0 of 1 answers |
-| Over-refusal rate | 0.000 | 0 of 1 answerable |
-
-Correctness is checked without a model in the loop. A fixed-version answer has to
-contain the version the advisory names, an is-affected answer has to agree with the
-version comparison, and a what-is answer has to cite the right advisory. Whether the
-prose itself is faithful is graded separately by the judge in Phase 3.
-
-| Question kind | Correct | Asked |
-| --- | --- | --- |
-| fixed_version | 1 | 1 |
-
 ## Agents
 
 The same scenarios run twice: once through a single ReAct agent holding only the
@@ -72,6 +51,22 @@ repeated scenario that call is served from the disk cache. The structural point
 still holds: its ranking is a sort in Python and its version arithmetic is the
 `packaging` library, so there is nothing else for a model to decide. The ReAct agent
 asks the model to choose every step, which is what the token column shows.
+
+### The single agent, on a subset
+
+The ReAct baseline was run over the first three scenarios on a day when the budget allowed
+it. It is not in the table above because it covers three scenarios rather than ten, and
+putting the two on one row would invite a comparison the numbers do not support.
+
+| Agent | Scenarios | Success rate | Average steps | Tokens | Estimated cost | Seconds | Safety violations |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| single agent | 3 | 0.67 | 4.7 | 44,401 | $0.0067 | 293 | 0 |
+| team, same three | 3 | 1.00 | 4.0 | 0 | $0.0000 | 16 | 0 |
+
+On the three they share, the team is right where the ReAct agent is not, eighteen times
+faster, and spends no tokens. The one the ReAct agent failed, `unused-ranks-low`, it failed
+by running out of its twelve step budget rather than by reaching a wrong answer, which is
+the characteristic failure of asking a model to decide every step.
 
 ## Cost and latency
 
@@ -117,3 +112,19 @@ The endpoint calls OSV over the network and then joins the local corpus, so this
 measure of how that join holds up under concurrency. Answering is a different shape of
 problem: it is bounded by the model's 8,000 tokens a minute rather than by this machine,
 which is why the public demo limits `/ask` to six requests a minute per visitor.
+
+## What is not measured yet
+
+Three measures have no committed score and are therefore not gated: answer accuracy,
+refusal accuracy and citation accuracy. They need a complete 50 question run against prompt
+version 3, and the free tier's rolling daily token budget has been refusing it: each answer
+spends one second talking to the model and then waits one to three minutes for capacity.
+
+A complete run on prompt version 2 gave 1.000, 1.000 and 0.000 wrong citations. Those
+numbers are not carried forward here, because version 3 changed how a refusal is written and
+reporting an old measurement as a current one is exactly the habit this report exists to
+avoid. The thresholds go back into `docs/eval_thresholds.json` when a version 3 run lands.
+
+Also outstanding: RAGAS as a second opinion on faithfulness, the three-model comparison, and
+the red team block rate. All three are written and tested, and all three are waiting on the
+same budget.
