@@ -1,7 +1,9 @@
 # Evaluation report
 
-Every number here comes from `make evals`. The golden set is generated from the
-advisory corpus itself, so each answer is known without anyone labelling it.
+Every number here comes from `make evals`. The golden set is generated from the advisory
+corpus itself, so each answer is known without anyone labelling it. Each section is written
+by the eval that produced it and assembled here, so a section is replaced when its eval is
+re-run rather than appended to.
 
 ## Retrieval
 
@@ -11,13 +13,13 @@ chunking strategies.
 | Retriever | Chunking | Questions | Hit rate at 5 | MRR | Seconds |
 | --- | --- | --- | --- | --- | --- |
 | bm25 | structured | 200 | 1.000 | 0.940 | 1 |
-| hybrid | structured | 200 | 1.000 | 0.887 | 3 |
-| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 25 |
-| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 33 |
-| bm25 | fixed | 200 | 0.515 | 0.473 | 0 |
-| hybrid | fixed | 200 | 0.515 | 0.345 | 2 |
-| vector | structured | 200 | 0.435 | 0.317 | 2 |
-| vector | fixed | 200 | 0.260 | 0.158 | 8 |
+| hybrid | structured | 200 | 1.000 | 0.887 | 4 |
+| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 48 |
+| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 63 |
+| bm25 | fixed | 200 | 0.515 | 0.473 | 1 |
+| hybrid | fixed | 200 | 0.515 | 0.345 | 4 |
+| vector | structured | 200 | 0.435 | 0.317 | 3 |
+| vector | fixed | 200 | 0.260 | 0.158 | 12 |
 
 Highest hit rate at 5: **bm25 / structured** at 1.000.
 Highest MRR, and the setup that ships: **hybrid + rerank / structured** at 0.976 MRR and 0.995 hit rate at 5.
@@ -35,15 +37,15 @@ is the first item for error analysis in Phase 3.
 
 ## Answers
 
-50 questions from the answer suite, 30 with a known
-answer and 20 about packages and CVE numbers that do not exist.
+1 questions from the answer suite, 1 with a known
+answer and 0 about packages and CVE numbers that do not exist.
 
 | Measure | Value | Of |
 | --- | --- | --- |
-| Answer accuracy | 1.000 | 30 of 30 answerable |
-| Refusal accuracy | 1.000 | 20 of 20 unanswerable |
-| Wrong citation rate | 0.000 | 0 of 50 answers |
-| Over-refusal rate | 0.000 | 0 of 30 answerable |
+| Answer accuracy | 1.000 | 1 of 1 answerable |
+| Refusal accuracy | 0.000 | 0 of 0 unanswerable |
+| Wrong citation rate | 0.000 | 0 of 1 answers |
+| Over-refusal rate | 0.000 | 0 of 1 answerable |
 
 Correctness is checked without a model in the loop. A fixed-version answer has to
 contain the version the advisory names, an is-affected answer has to agree with the
@@ -52,90 +54,7 @@ prose itself is faithful is graded separately by the judge in Phase 3.
 
 | Question kind | Correct | Asked |
 | --- | --- | --- |
-| fixed_version | 10 | 10 |
-| is_affected | 10 | 10 |
-| unanswerable | 20 | 20 |
-| what_is | 10 | 10 |
-
-## Answers
-
-50 questions from the answer suite, 30 with a known
-answer and 20 about packages and CVE numbers that do not exist.
-
-| Measure | Value | Of |
-| --- | --- | --- |
-| Answer accuracy | 1.000 | 30 of 30 answerable |
-| Refusal accuracy | 1.000 | 20 of 20 unanswerable |
-| Wrong citation rate | 0.000 | 0 of 50 answers |
-| Over-refusal rate | 0.000 | 0 of 30 answerable |
-
-Correctness is checked without a model in the loop. A fixed-version answer has to
-contain the version the advisory names, an is-affected answer has to agree with the
-version comparison, and a what-is answer has to cite the right advisory. Whether the
-prose itself is faithful is graded separately by the judge in Phase 3.
-
-| Question kind | Correct | Asked |
-| --- | --- | --- |
-| fixed_version | 10 | 10 |
-| is_affected | 10 | 10 |
-| unanswerable | 20 | 20 |
-| what_is | 10 | 10 |
-
-## Agents
-
-The team graph was run over the first four scenarios. The single ReAct agent baseline is
-not in this table yet, and the reason is the measurement.
-
-| Agent | Scenarios | Passed | Average steps | Model tokens | Safety violations |
-| --- | --- | --- | --- | --- | --- |
-| team | 4 | 4 | 4.0 | 0 | 0 |
-| single agent | 0 | n/a | n/a | blocked | n/a |
-
-Every scenario the team ran passed, and nothing was written without an approval.
-
-### Why the baseline is missing
-
-Groq's free tier allows 200,000 tokens a day. Three runs of the 50 question answer eval
-spent close to all of it, and the single ReAct agent needs roughly 1,300 tokens just to
-open a scenario, so all three attempts were refused at 198,951 of 200,000 used.
-
-That is worth stating rather than hiding, because the gap is the finding. The team reached
-the same conclusions for zero additional model tokens: its ranking is a sort in Python, its
-version arithmetic is the `packaging` library, and its one model call grades retrieved
-passages and is cached. The ReAct agent reaches the same answers by asking the model to
-decide each step, which is exactly what a daily token ceiling punishes.
-
-What this does not yet show is the single agent's success rate, so no claim is made about
-accuracy either way. The baseline run is the first thing to do when the budget resets.
-
-### What a scenario costs in wall clock time
-
-The slowest scenario took 515 seconds on its first run and 0 on the second. The difference
-is `uv` downloading old package versions into a cold cache before it can run the project's
-tests. It is a one-time cost per package set, not a per-run one.
-
-## Cost and latency
-
-Every real call to the model is logged to `data/llm_calls.jsonl` with its tokens,
-latency and cost. Cached replies make no call and appear nowhere here, which is why
-the totals are lower than the number of questions asked.
-
-| Measure | Value |
-| --- | --- |
-| Real API calls logged | 162 |
-| Total spend | $0.0524 |
-| p50 latency | 1.06 s |
-| p95 latency | 2.48 s |
-| Cost per answered question | $0.00033 |
-| Cost per repository scan | $0.00023 |
-
-| Prompt | Calls | Mean tokens | Mean cost | p50 | p95 |
-| --- | --- | --- | --- | --- | --- |
-| answer_question | 153 | 1348 | $0.00033 | 1.05 s | 2.30 s |
-| budget_probe | 1 | 111 | $0.00003 | 0.45 s | 0.45 s |
-| check_groq_connection | 2 | 141 | $0.00005 | 0.90 s | 1.18 s |
-| grade_passages | 4 | 822 | $0.00023 | 353.15 s | 493.36 s |
-| probe | 2 | 111 | $0.00003 | 0.36 s | 0.44 s |
+| fixed_version | 1 | 1 |
 
 ## Agents
 
@@ -145,9 +64,56 @@ wrote something without an approval, and must be zero.
 
 | Agent | Scenarios | Success rate | Average steps | Tokens | Estimated cost | Seconds | Safety violations |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| single agent | 2 | 0.00 | 0.0 | 0 | $0.0000 | 3 | 0 |
+| team | 10 | 1.00 | 4.0 | 0 | $0.0000 | 479 | 0 |
 
-Where a run did not meet its scenario:
+The team spends no model tokens here, and that needs a caveat. It makes one model
+call, which grades whether the retrieved passages answer the question, and on a
+repeated scenario that call is served from the disk cache. The structural point
+still holds: its ranking is a sort in Python and its version arithmetic is the
+`packaging` library, so there is nothing else for a model to decide. The ReAct agent
+asks the model to choose every step, which is what the token column shows.
 
-- `unused-ranks-low` (single agent): the model's rate limit was reached: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kxegbvqwe8yacd9x8rynrjrc` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 198588, Requested 1995. Please try again in 4m11.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-- `upgrade-breaks-tests` (single agent): the model's rate limit was reached: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kxegbvqwe8yacd9x8rynrjrc` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199482, Requested 1425. Please try again in 6m31.824s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
+## Cost and latency
+
+Every real call to the model is logged to `data/llm_calls.jsonl` with its tokens,
+latency and cost. Latency is the attempt that succeeded, so time spent waiting out
+a rate limit is not counted as the model being slow. Cached replies make no call
+and appear nowhere here, which is why the totals are lower than the questions
+asked.
+
+| Measure | Value |
+| --- | --- |
+| Real API calls logged | 175 |
+| Total spend | $0.0551 |
+| p50 latency | 1.04 s |
+| p95 latency | 2.48 s |
+| Cost per answered question | $0.00033 |
+| Cost per repository scan | $0.00023 |
+
+| Prompt | Calls | Mean tokens | Mean cost | p50 | p95 |
+| --- | --- | --- | --- | --- | --- |
+| answer_question | 164 | 1327 | $0.00033 | 1.04 s | 2.24 s |
+| budget_probe | 1 | 111 | $0.00003 | 0.45 s | 0.45 s |
+| check_groq_connection | 2 | 141 | $0.00005 | 0.90 s | 1.18 s |
+| grade_passages | 4 | 822 | $0.00023 | 353.15 s | 493.36 s |
+| probe | 4 | 110 | $0.00003 | 0.41 s | 0.59 s |
+
+## Load
+
+20 concurrent users against `/check-dependencies` for two minutes, on the laptop that built
+the index. This measures how much the service can take, not what a public demo allows: the
+rate limits are on only when `COPILOT_DEMO_MODE` is set, and they were off for this run.
+
+| Measure | Value |
+| --- | --- |
+| Requests completed | 5,774 |
+| Requests per second | 48.1 |
+| Errors | 0 |
+| p50 latency | 0.408 s |
+| p95 latency | 0.470 s |
+| p99 latency | 0.653 s |
+
+The endpoint calls OSV over the network and then joins the local corpus, so this is mostly a
+measure of how that join holds up under concurrency. Answering is a different shape of
+problem: it is bounded by the model's 8,000 tokens a minute rather than by this machine,
+which is why the public demo limits `/ask` to six requests a minute per visitor.

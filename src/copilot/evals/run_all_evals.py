@@ -55,11 +55,12 @@ def run_answers(limit: int, pause: float) -> None:
 
 
 def run_agents(limit: int) -> None:
-    scenarios = read_scenarios()[:limit] if limit else read_scenarios()
+    every = read_scenarios()
+    scenarios = every[:limit] if limit else every
     results = asyncio.run(run_everything(scenarios, None))
     ran = {result.agent for result in results}
     summaries = [summarise_agents(results, agent) for agent in (SINGLE, TEAM) if agent in ran]
-    write_agents(summaries, results, eval_report.REPORT_PATH)
+    write_agents(summaries, results, eval_report.REPORT_PATH, complete=len(scenarios) == len(every))
 
 
 def run_cost() -> None:

@@ -158,15 +158,22 @@ def answers_section(score: AnswerScore, outcomes: Sequence[AnswerOutcome]) -> st
     return "\n".join(lines)
 
 
-def append_to_report(score: AnswerScore, path: Path, outcomes: Sequence[AnswerOutcome]) -> None:
+def append_to_report(
+    score: AnswerScore,
+    path: Path,
+    outcomes: Sequence[AnswerOutcome],
+    complete: bool = True,
+) -> None:
     eval_report.write_section(eval_report.ANSWERS, answers_section(score, outcomes))
-    write_scores(
-        {
-            "answer_accuracy": score.answer_accuracy,
-            "refusal_accuracy": score.refusal_accuracy,
-            "citation_accuracy": 1.0 - score.wrong_citation_rate,
-        }
-    )
+    # A partial run is worth reading, but it must not overwrite a full measurement.
+    if complete:
+        write_scores(
+            {
+                "answer_accuracy": score.answer_accuracy,
+                "refusal_accuracy": score.refusal_accuracy,
+                "citation_accuracy": 1.0 - score.wrong_citation_rate,
+            }
+        )
     eval_report.assemble(path)
 
 
@@ -198,7 +205,7 @@ def main() -> int:
 
     score = summarise(outcomes, time.perf_counter() - started)
     report = Path("docs/eval_report.md")
-    append_to_report(score, report, outcomes)
+    append_to_report(score, report, outcomes, complete=not args.limit)
 
     print()
     print(answer_table(score))

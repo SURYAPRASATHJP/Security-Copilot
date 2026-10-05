@@ -98,3 +98,24 @@ def test_a_spent_budget_says_only_repeated_questions_can_be_answered(tmp_path, m
     assert state.exhausted is True
     assert state.remaining == 0
     assert "asked before" in state.summary
+
+
+def test_the_limiter_is_off_unless_the_demo_is_on(monkeypatch):
+    monkeypatch.delenv(DEMO_MODE_ENV, raising=False)
+    import importlib
+
+    from api import main
+
+    importlib.reload(main)
+    assert main.limiter.enabled is False
+
+
+def test_the_limiter_is_on_for_a_public_demo(monkeypatch):
+    monkeypatch.setenv(DEMO_MODE_ENV, "1")
+    import importlib
+
+    from api import main
+
+    importlib.reload(main)
+    assert main.limiter.enabled is True
+    importlib.reload(main)

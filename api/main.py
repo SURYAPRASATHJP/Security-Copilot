@@ -26,6 +26,7 @@ from copilot.dependencies.check_my_dependencies import (
 from copilot.dependencies.read_requirements_file import read_requirements_text
 from copilot.guardrails.demo_limits import (
     ASK_PER_MINUTE,
+    REQUESTS_PER_MINUTE,
     SCAN_PER_HOUR,
     budget_state,
     demo_mode,
@@ -37,7 +38,8 @@ from copilot.rag.route_question import wants_dependency_check
 from copilot.rag.split_into_chunks import STRUCTURED
 from copilot.settings import MissingGroqKeyError, get_settings
 
-limiter = Limiter(key_func=get_remote_address)
+# The limits exist to protect a public demo. A local run should not be throttled.
+limiter = Limiter(key_func=get_remote_address, enabled=demo_mode())
 
 app = FastAPI(
     title="Security Copilot",
@@ -131,8 +133,9 @@ def health() -> dict[str, object]:
 
 
 @app.post("/check-dependencies", response_model=CheckResponse)
-def check_dependencies(request: CheckRequest) -> CheckResponse:
-    return to_check_response(run_check(request.requirements))
+@limiter.limit(REQUESTS_PER_MINUTE)
+def check_dependencies(body: CheckRequest, request: Request) -> CheckResponse:
+    return to_check_response(run_check(body.requirements))
 
 
 @app.post("/check-dependencies/upload", response_model=CheckResponse)

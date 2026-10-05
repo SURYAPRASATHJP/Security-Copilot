@@ -182,11 +182,14 @@ def agents_section(summaries: Sequence[AgentSummary], results: Sequence[Scenario
 
 
 def append_to_report(
-    summaries: Sequence[AgentSummary], results: Sequence[ScenarioResult], path: Path
+    summaries: Sequence[AgentSummary],
+    results: Sequence[ScenarioResult],
+    path: Path,
+    complete: bool = True,
 ) -> None:
     eval_report.write_section(eval_report.AGENTS, agents_section(summaries, results))
     for summary in summaries:
-        if summary.agent == TEAM:
+        if complete and summary.agent == TEAM:
             write_scores(
                 {
                     "team_scenario_success": summary.success_rate,
