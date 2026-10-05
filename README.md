@@ -1,19 +1,54 @@
 # Security Copilot
 
+[![tests](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/tests.yml/badge.svg)](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/tests.yml)
+[![evals](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/evals.yml/badge.svg)](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/evals.yml)
+
 Tells you whether your Python dependencies have known vulnerabilities, explains each one
 with a cited advisory, and opens a pull request that fixes it.
 
-Version ranges are decided by code, never by the model. The model explains what an
-advisory means; the `packaging` library decides whether your pinned version is inside the
-affected range. Getting that boundary wrong is the usual way a tool like this starts
-inventing answers.
+Version ranges are decided by code, never by the model. The model explains what an advisory
+means; the `packaging` library decides whether your pinned version is inside the affected
+range. Getting that boundary wrong is the usual way a tool like this starts inventing
+answers.
+
+A real pull request it opened: [vulnerable-demo-app#1](https://github.com/SURYAPRASATHJP/vulnerable-demo-app/pull/1).
+
+## Results
+
+| What | Number |
+| --- | --- |
+| Retrieval hit rate at 5 | 0.995 |
+| Retrieval MRR | 0.976 |
+| Hit rate with fixed-size chunks instead | 0.520 |
+| Agent scenarios passed | 10 of 10 |
+| Writes without a human approval | 0 |
+| Prompt injection classifier F1 | 0.969 |
+| Prompt injection classifier recall | 0.975 |
+| Cost per answered question | $0.00033 |
+| p95 latency under 20 concurrent users | 0.470 s |
+| Advisories in the corpus | 1,440 over 102 packages |
+
+Every number comes from `make evals` and is written to
+[docs/eval_report.md](docs/eval_report.md), which also says what each one does not measure.
 
 ## Status
 
-Phase 2 of 3 is nearly complete. Phase 1 built the advisory corpus, hybrid retrieval with
-reranking, the dependency check and cited answers. Phase 2 added seven tools behind an MCP
-server, a single triage agent, the agent team, and an approval gate that stops the graph
-before anything is written. Phase 3 adds tracing, guardrails, a classifier and deployment.
+Phases 1 and 2 are complete. Phase 3 is most of the way: tracing, both guardrails, the
+classifier, MLflow, DVC, drift, the CI eval gate and the load test are done. Still open are
+the model-graded evals, which are waiting on a free-tier token budget, and the public
+deployment.
+
+## How it is laid out
+
+| Document | What it holds |
+| --- | --- |
+| [docs/architecture.md](docs/architecture.md) | How a question and a repository each flow through the system |
+| [docs/decisions.md](docs/decisions.md) | 21 design decisions, the options compared, the evidence |
+| [docs/eval_report.md](docs/eval_report.md) | Every measurement, and what each does not measure |
+| [docs/model_card.md](docs/model_card.md) | The prompt injection classifier, its data and its weaknesses |
+| [docs/responsible_ai.md](docs/responsible_ai.md) | Risks, licences, what is logged, EU AI Act position |
+| [docs/red_team_report.md](docs/red_team_report.md) | 64 OWASP-tagged attacks and what got through |
+| [docs/use_with_mcp_clients.md](docs/use_with_mcp_clients.md) | Using the seven tools from your own editor |
 
 ## Run it
 
