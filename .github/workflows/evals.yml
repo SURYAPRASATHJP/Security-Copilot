@@ -1,0 +1,40 @@
+name: evals
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen --no-default-groups --group core --group rag --group agents --group app --group dev
+
+      # No key is needed and none is available. The LLM-graded evals run locally with
+      # make evals, and their scores are committed for this job to check.
+      - name: Guardrails and version logic
+        run: >-
+          uv run pytest -q
+          tests/test_input_guard.py
+          tests/test_output_guard.py
+          tests/test_version_ranges.py
+          tests/test_demo_limits.py
+          tests/test_human_approval.py
+          tests/test_red_team.py
+
+      - name: Eval gate
+        run: uv run python -m copilot.evals.check_thresholds
+
+      - name: Show the committed scores
+        if: always()
+        run: cat docs/eval_scores.json

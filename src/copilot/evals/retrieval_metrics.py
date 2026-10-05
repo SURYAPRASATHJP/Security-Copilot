@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from copilot.evals import report as eval_report
 from copilot.evals.build_golden_questions import RETRIEVAL, GoldenQuestion, read_questions
+from copilot.evals.check_thresholds import write_scores
 from copilot.rag.hybrid_search import hybrid_search
 from copilot.rag.keyword_search import keyword_search
 from copilot.rag.rerank_results import rerank_results
@@ -148,6 +149,8 @@ def retrieval_section(scores: Sequence[SetupScore], questions: int) -> str:
 
 def write_report(scores: Sequence[SetupScore], path: Path, questions: int) -> None:
     eval_report.write_section(eval_report.RETRIEVAL, retrieval_section(scores, questions))
+    shipped = max(scores, key=lambda score: score.mrr)
+    write_scores({"retrieval_hit_rate_at_5": shipped.hit_rate_at_5, "retrieval_mrr": shipped.mrr})
     eval_report.assemble(path)
 
 

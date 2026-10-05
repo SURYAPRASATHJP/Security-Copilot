@@ -15,6 +15,7 @@ from copilot.evals.build_golden_questions import (
     GoldenQuestion,
     read_questions,
 )
+from copilot.evals.check_thresholds import write_scores
 from copilot.rag.answer_with_citations import CitedAnswer, answer_question
 from copilot.settings import get_settings
 
@@ -159,6 +160,13 @@ def answers_section(score: AnswerScore, outcomes: Sequence[AnswerOutcome]) -> st
 
 def append_to_report(score: AnswerScore, path: Path, outcomes: Sequence[AnswerOutcome]) -> None:
     eval_report.write_section(eval_report.ANSWERS, answers_section(score, outcomes))
+    write_scores(
+        {
+            "answer_accuracy": score.answer_accuracy,
+            "refusal_accuracy": score.refusal_accuracy,
+            "citation_accuracy": 1.0 - score.wrong_citation_rate,
+        }
+    )
     eval_report.assemble(path)
 
 

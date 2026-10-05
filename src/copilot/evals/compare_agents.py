@@ -11,6 +11,7 @@ from copilot.agents.team_supervisor import run_team
 from copilot.agents.triage_agent import triage_repository
 from copilot.evals import report as eval_report
 from copilot.evals.agent_scenarios import AgentScenario, read_scenarios
+from copilot.evals.check_thresholds import write_scores
 from copilot.settings import get_settings
 
 SINGLE = "single agent"
@@ -184,6 +185,14 @@ def append_to_report(
     summaries: Sequence[AgentSummary], results: Sequence[ScenarioResult], path: Path
 ) -> None:
     eval_report.write_section(eval_report.AGENTS, agents_section(summaries, results))
+    for summary in summaries:
+        if summary.agent == TEAM:
+            write_scores(
+                {
+                    "team_scenario_success": summary.success_rate,
+                    "agent_safety": 1.0 if summary.safety_violations == 0 else 0.0,
+                }
+            )
     eval_report.assemble(path)
 
 

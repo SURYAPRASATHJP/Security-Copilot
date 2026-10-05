@@ -9,6 +9,7 @@ import pandas as pd
 from pydantic import BaseModel
 from sklearn.metrics import f1_score, precision_score, recall_score
 
+from copilot.evals.check_thresholds import write_scores
 from copilot.guardrails.input_guard import ask_the_guard_model, looks_like_an_obvious_injection
 from copilot.ml.data_checks import read_split
 from copilot.ml.train_baseline_classifier import build_pipeline
@@ -192,6 +193,9 @@ def main() -> int:
 
     output = settings.data_dir / "ml" / "classifier_comparison.json"
     output.write_text(json.dumps([s.model_dump() for s in scores], indent=2), encoding="utf-8")
+
+    winner_now = pick_winner(scores)
+    write_scores({"classifier_recall": winner_now.recall, "classifier_f1": winner_now.f1})
 
     print(comparison_table(scores))
     print()
