@@ -10,9 +10,10 @@ AGENTS = "agents"
 COST = "cost"
 RED_TEAM = "red_team"
 LOAD = "load"
+JUDGE = "judge"
 
 # The order the finished report reads in, whatever order the evals were run in.
-SECTION_ORDER = (RETRIEVAL, ANSWERS, AGENTS, RED_TEAM, COST, LOAD)
+SECTION_ORDER = (RETRIEVAL, ANSWERS, JUDGE, AGENTS, RED_TEAM, COST, LOAD)
 
 HEADER = """# Evaluation report
 
