@@ -92,7 +92,7 @@ def train(
     }
 
 
-def log_to_mlflow(scores: dict[str, float], epochs: int) -> str:
+def log_to_mlflow(scores: dict[str, float], epochs: int, model_dir: Path | None = None) -> str:
     import mlflow
 
     mlflow.set_experiment("prompt-injection-classifier")
@@ -106,6 +106,20 @@ def log_to_mlflow(scores: dict[str, float], epochs: int) -> str:
             }
         )
         mlflow.log_metrics(scores)
+        # The registry can only promote a logged model, which loose artifacts are not.
+        if model_dir and model_dir.exists():
+            import mlflow.transformers
+            from transformers import pipeline as hf_pipeline
+
+            classifier = hf_pipeline(
+                "text-classification", model=str(model_dir), tokenizer=str(model_dir)
+            )
+            mlflow.transformers.log_model(
+                transformers_model=classifier,
+                name="model",
+                # Stated outright because inferring them pulls in torchvision for nothing.
+                pip_requirements=["transformers", "torch", "accelerate"],
+            )
         return run.info.run_id
 
 
@@ -128,7 +142,8 @@ def main() -> int:
     print(f"test recall: {scores['recall']:.3f}")
     print(f"test F1: {scores['f1']:.3f}")
     if not args.no_mlflow:
-        print(f"mlflow run: {log_to_mlflow(scores, args.epochs)}")
+        run_id = log_to_mlflow(scores, args.epochs, output_dir / "model")
+        print(f"mlflow run: {run_id}")
     return 0
 
 
