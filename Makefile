@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup data index api app evals test lint
+.PHONY: help setup data index api app evals deploy test lint
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-8s %s\n", $$1, $$2}'
@@ -30,6 +30,9 @@ evals:  ## Run every eval and rewrite docs/eval_report.md
 
 test:  ## Run the test suite
 	uv run pytest -q
+
+deploy:  ## Push the demo to a Hugging Face Space
+	uv run python scripts/deploy_to_space.py
 
 lint:  ## Check formatting and lint rules
 	uv run ruff check .
