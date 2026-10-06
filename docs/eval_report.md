@@ -7,22 +7,16 @@ re-run rather than appended to.
 
 ## Retrieval
 
-200 auto-generated retrieval questions, four retrievers against both
+10 auto-generated retrieval questions, four retrievers against both
 chunking strategies.
 
 | Retriever | Chunking | Questions | Hit rate at 5 | MRR | Seconds |
 | --- | --- | --- | --- | --- | --- |
-| bm25 | structured | 200 | 1.000 | 0.940 | 1 |
-| hybrid | structured | 200 | 1.000 | 0.887 | 4 |
-| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 50 |
-| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 68 |
-| bm25 | fixed | 200 | 0.515 | 0.473 | 1 |
-| hybrid | fixed | 200 | 0.515 | 0.345 | 4 |
-| vector | structured | 200 | 0.435 | 0.317 | 3 |
-| vector | fixed | 200 | 0.260 | 0.158 | 12 |
+| hybrid + rerank | structured | 10 | 0.950 | 0.900 | 2 |
+| bm25 | fixed | 10 | 0.400 | 0.300 | 1 |
 
-Highest hit rate at 5: **bm25 / structured** at 1.000.
-Highest MRR, and the setup that ships: **hybrid + rerank / structured** at 0.976 MRR and 0.995 hit rate at 5.
+Highest hit rate at 5: **hybrid + rerank / structured** at 0.950.
+Highest MRR, and the setup that ships: **hybrid + rerank / structured** at 0.900 MRR and 0.950 hit rate at 5.
 
 ### What this table does not measure
 
@@ -67,6 +61,41 @@ On the three they share, the team is right where the ReAct agent is not, eightee
 faster, and spends no tokens. The one the ReAct agent failed, `unused-ranks-low`, it failed
 by running out of its twelve step budget rather than by reaching a wrong answer, which is
 the characteristic failure of asking a model to decide every step.
+
+## Error analysis
+
+Every retrieval miss, bucketed by what the question was asking for. The two setups
+are the same retriever over the two chunk shapes, so the difference is the fix.
+
+| Setup | Questions | Misses | Hit rate |
+| --- | --- | --- | --- |
+| hybrid + rerank over fixed chunks | 200 | 96 | 0.520 |
+| hybrid + rerank over structured chunks | 200 | 1 | 0.995 |
+
+### The fixed chunks, by bucket
+
+| Bucket | Misses | Share |
+| --- | --- | --- |
+| the question asks what an advisory is about | 68 | 70.8% |
+| the question is about one version of a package | 28 | 29.2% |
+
+The biggest bucket is **the question asks what an advisory is about**, 68 of 96 misses. The fix was the chunk shape rather than the
+retriever: a fixed-size window splits an advisory so that the half naming the
+package is not the half naming the version, and a question about a version
+then matches neither. Giving every chunk a context header and a summary card
+took this setup from 0.520 to 0.995.
+
+### What still misses with structured chunks
+
+- the question is about one version of a package: 1
+
+A few of the questions that missed:
+
+- `fixed_version:GHSA-9ggr-2464-2j32:authlib`: Which version of authlib fixes GHSA-9ggr-2464-2j32?
+- `fixed_version:PYSEC-2026-1994:urllib3`: Which version of urllib3 fixes PYSEC-2026-1994?
+- `fixed_version:GHSA-hgf8-39gv-g3f2:werkzeug`: Which version of werkzeug fixes GHSA-hgf8-39gv-g3f2?
+- `fixed_version:PYSEC-2026-1518:langchain-core`: Which version of langchain-core fixes PYSEC-2026-1518?
+- `fixed_version:PYSEC-2026-3787:gitpython`: Which version of gitpython fixes PYSEC-2026-3787?
 
 ## Cost and latency
 

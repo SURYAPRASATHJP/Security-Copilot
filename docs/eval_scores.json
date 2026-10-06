@@ -1,8 +1,11 @@
 {
   "agent_safety": 1.0,
+  "answer_accuracy": 1.0,
+  "citation_accuracy": 1.0,
   "classifier_f1": 0.9693,
   "classifier_recall": 0.9753,
-  "retrieval_hit_rate_at_5": 0.995,
-  "retrieval_mrr": 0.9758,
+  "refusal_accuracy": 0.0,
+  "retrieval_hit_rate_at_5": 0.95,
+  "retrieval_mrr": 0.9,
   "team_scenario_success": 1.0
 }
