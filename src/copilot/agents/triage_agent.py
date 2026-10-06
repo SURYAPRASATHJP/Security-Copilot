@@ -1,4 +1,3 @@
-import asyncio
 import time
 from collections.abc import Sequence
 
@@ -118,9 +117,3 @@ async def triage_repository(
         seconds=time.perf_counter() - started,
         stopped_early=stopped_early,
     )
-
-
-def triage_repository_blocking(
-    repository: str, max_steps: int = MAX_STEPS, token_budget: int = TOKEN_BUDGET
-) -> TriageOutcome:
-    return asyncio.run(triage_repository(repository, max_steps, token_budget))

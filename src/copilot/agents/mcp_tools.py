@@ -1,4 +1,3 @@
-import asyncio
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -33,10 +32,6 @@ async def load_tools() -> list:
     """Fetch the tools from the MCP server rather than importing the functions directly."""
     client = MultiServerMCPClient(server_configuration())
     return await client.get_tools()
-
-
-def load_tools_blocking() -> list:
-    return asyncio.run(load_tools())
 
 
 def only(tools: Sequence, names: Sequence[str]) -> list:
