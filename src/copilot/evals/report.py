@@ -14,6 +14,7 @@ JUDGE = "judge"
 MODELS = "models"
 GAPS = "gaps"
 RAGAS = "ragas"
+ERRORS = "errors"
 
 # The order the finished report reads in, whatever order the evals were run in.
 SECTION_ORDER = (
@@ -24,6 +25,7 @@ SECTION_ORDER = (
     MODELS,
     AGENTS,
     RED_TEAM,
+    ERRORS,
     COST,
     LOAD,
     GAPS,
