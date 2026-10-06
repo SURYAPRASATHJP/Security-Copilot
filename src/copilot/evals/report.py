@@ -13,9 +13,21 @@ LOAD = "load"
 JUDGE = "judge"
 MODELS = "models"
 GAPS = "gaps"
+RAGAS = "ragas"
 
 # The order the finished report reads in, whatever order the evals were run in.
-SECTION_ORDER = (RETRIEVAL, ANSWERS, JUDGE, MODELS, AGENTS, RED_TEAM, COST, LOAD, GAPS)
+SECTION_ORDER = (
+    RETRIEVAL,
+    ANSWERS,
+    JUDGE,
+    RAGAS,
+    MODELS,
+    AGENTS,
+    RED_TEAM,
+    COST,
+    LOAD,
+    GAPS,
+)
 
 HEADER = """# Evaluation report
 
