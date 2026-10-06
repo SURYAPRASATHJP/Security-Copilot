@@ -21,6 +21,10 @@ def rate_limited(retry_after: str = "0") -> RateLimitError:
     )
 
 
+def rate_limited_without_header() -> RateLimitError:
+    return RateLimitError("rate limited", response=_http_response(429), body=None)
+
+
 def server_error() -> InternalServerError:
     return InternalServerError("upstream failure", response=_http_response(500), body=None)
 
@@ -153,3 +157,27 @@ def test_a_call_with_no_retries_reports_the_same_two_times(wired, settings):
     llm_client.ask_llm(QUESTION, prompt_name="clean")
     record = json.loads(settings.llm_call_log.read_text(encoding="utf-8").strip())
     assert abs(record["elapsed_seconds"] - record["latency_seconds"]) < 0.05
+
+
+def test_a_short_retry_after_is_waited_out(wired, no_backoff):
+    client = wired([rate_limited("5"), FakeCompletion("recovered")])
+    assert llm_client.ask_llm(QUESTION) == "recovered"
+    assert client.calls == 2
+
+
+def test_a_retry_after_longer_than_the_cap_gives_up_at_once(wired, no_backoff):
+    client = wired([rate_limited("900"), FakeCompletion("never reached")])
+    with pytest.raises(RateLimitError):
+        llm_client.ask_llm(QUESTION)
+    # One attempt, because waiting a quarter of an hour is not retrying.
+    assert client.calls == 1
+
+
+def test_a_rate_limit_with_no_header_is_still_retried(wired, no_backoff):
+    client = wired([rate_limited_without_header(), FakeCompletion("recovered")])
+    assert llm_client.ask_llm(QUESTION) == "recovered"
+    assert client.calls == 2
+
+
+def test_the_cap_is_short_enough_that_a_caller_is_not_left_hanging():
+    assert llm_client.MAX_WAIT_SECONDS <= 120

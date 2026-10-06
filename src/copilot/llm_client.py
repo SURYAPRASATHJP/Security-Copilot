@@ -18,7 +18,15 @@ class BudgetExhaustedError(RuntimeError):
     pass
 
 
+class WaitTooLongError(RuntimeError):
+    pass
+
+
 _BACKOFF = wait_exponential(multiplier=1, min=1, max=30)
+
+# A daily quota can ask for a quarter of an hour. Blocking a caller that long is worse
+# than telling them to come back, so a wait beyond this gives up instead.
+MAX_WAIT_SECONDS = 90.0
 
 
 @lru_cache
@@ -40,7 +48,11 @@ def _response_cache() -> diskcache.Cache:
 
 
 def _is_retryable(exc: BaseException) -> bool:
-    if isinstance(exc, RateLimitError | APITimeoutError | APIConnectionError):
+    if isinstance(exc, RateLimitError):
+        # Waiting out a daily quota is not retrying, it is hanging.
+        asked = _retry_after_seconds(exc)
+        return asked is None or asked <= MAX_WAIT_SECONDS
+    if isinstance(exc, APITimeoutError | APIConnectionError):
         return True
     return isinstance(exc, APIStatusError) and exc.status_code >= 500
 
