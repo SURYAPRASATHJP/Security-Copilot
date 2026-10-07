@@ -7,16 +7,22 @@ re-run rather than appended to.
 
 ## Retrieval
 
-10 auto-generated retrieval questions, four retrievers against both
+200 auto-generated retrieval questions, four retrievers against both
 chunking strategies.
 
 | Retriever | Chunking | Questions | Hit rate at 5 | MRR | Seconds |
 | --- | --- | --- | --- | --- | --- |
-| hybrid + rerank | structured | 10 | 0.950 | 0.900 | 2 |
-| bm25 | fixed | 10 | 0.400 | 0.300 | 1 |
+| bm25 | structured | 200 | 1.000 | 0.940 | 1 |
+| hybrid | structured | 200 | 1.000 | 0.887 | 4 |
+| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 59 |
+| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 76 |
+| bm25 | fixed | 200 | 0.515 | 0.473 | 1 |
+| hybrid | fixed | 200 | 0.515 | 0.345 | 4 |
+| vector | structured | 200 | 0.435 | 0.317 | 3 |
+| vector | fixed | 200 | 0.260 | 0.158 | 15 |
 
-Highest hit rate at 5: **hybrid + rerank / structured** at 0.950.
-Highest MRR, and the setup that ships: **hybrid + rerank / structured** at 0.900 MRR and 0.950 hit rate at 5.
+Highest hit rate at 5: **bm25 / structured** at 1.000.
+Highest MRR, and the setup that ships: **hybrid + rerank / structured** at 0.976 MRR and 0.995 hit rate at 5.
 
 ### What this table does not measure
 
@@ -107,20 +113,22 @@ asked.
 
 | Measure | Value |
 | --- | --- |
-| Real API calls logged | 175 |
-| Total spend | $0.0551 |
-| p50 latency | 1.04 s |
-| p95 latency | 2.48 s |
-| Cost per answered question | $0.00033 |
-| Cost per repository scan | $0.00023 |
+| Real API calls logged | 201 |
+| Total spend | $0.0630 |
+| p50 latency | 1.03 s |
+| p95 latency | 2.40 s |
+| Cost per answered question | $0.00034 |
+| Cost per repository scan | $0.00021 |
 
 | Prompt | Calls | Mean tokens | Mean cost | p50 | p95 |
 | --- | --- | --- | --- | --- | --- |
-| answer_question | 164 | 1327 | $0.00033 | 1.04 s | 2.24 s |
+| answer_question | 183 | 1368 | $0.00034 | 1.04 s | 2.18 s |
 | budget_probe | 1 | 111 | $0.00003 | 0.45 s | 0.45 s |
-| check_groq_connection | 2 | 141 | $0.00005 | 0.90 s | 1.18 s |
-| grade_passages | 4 | 822 | $0.00023 | 353.15 s | 493.36 s |
+| check_groq_connection | 3 | 141 | $0.00005 | 0.59 s | 1.15 s |
+| grade_passages | 6 | 782 | $0.00021 | 306.63 s | 480.16 s |
 | probe | 4 | 110 | $0.00003 | 0.41 s | 0.59 s |
+| probe2 | 1 | 110 | $0.00003 | 0.46 s | 0.46 s |
+| unnamed | 3 | 112 | $0.00003 | 0.40 s | 0.51 s |
 
 ## Load
 
