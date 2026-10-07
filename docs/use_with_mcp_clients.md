@@ -1,8 +1,8 @@
 # Using these tools from your own editor
 
 The seven tools are served over MCP, so anything that speaks the protocol can use them:
-Claude Desktop, Cursor, Zed, Continue, or your own client. Nothing about them is specific
-to this project's agent.
+Cursor, Zed, Continue, any MCP-capable desktop assistant, or your own client. Nothing about
+them is specific to this project's agent.
 
 ## The config
 
