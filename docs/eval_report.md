@@ -59,6 +59,20 @@ prose itself is faithful is graded separately by the judge in Phase 3.
 | unanswerable | 20 | 20 |
 | what_is | 10 | 10 |
 
+## The judge
+
+A rubric prompt scores every answer for faithfulness and correctness. The number
+that matters is not the score, it is how often the judge agrees with the
+deterministic check, because that is what says whether the judge can be trusted on
+the questions where no deterministic check exists.
+
+| Measure | Value |
+| --- | --- |
+| Answers judged | 20 |
+| Mean faithfulness | 1.000 |
+| Mean correctness | 0.975 |
+| Agreement with the deterministic check | 100.0% |
+
 ## Agents
 
 The same scenarios run twice: once through a single ReAct agent holding only the
