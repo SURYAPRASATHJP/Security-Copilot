@@ -8,6 +8,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from copilot import llm_client
+from copilot.evals import check_thresholds
+from copilot.evals import report as eval_report
 from copilot.settings import Settings
 
 
@@ -68,3 +70,11 @@ def fake_llm(monkeypatch):
         return recorded
 
     return reply_with
+
+
+@pytest.fixture(autouse=True)
+def leave_the_committed_eval_artifacts_alone(tmp_path, monkeypatch):
+    # A test once wrote its fixture numbers into docs/eval_scores.json and silently
+    # reverted a real measurement, so the paths are redirected for every test.
+    monkeypatch.setattr(check_thresholds, "SCORES_PATH", tmp_path / "eval_scores.json")
+    monkeypatch.setattr(eval_report, "sections_dir", lambda: tmp_path / "sections")

@@ -32,8 +32,9 @@ def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
-def write_scores(scores: dict[str, float], path: Path = SCORES_PATH) -> Path:
+def write_scores(scores: dict[str, float], path: Path | None = None) -> Path:
     """Record the scores a committed run produced, so CI has something to check."""
+    path = path or SCORES_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = read_json(path)
     existing.update({name: round(float(value), 4) for name, value in scores.items()})
