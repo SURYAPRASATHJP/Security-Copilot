@@ -14,12 +14,12 @@ chunking strategies.
 | --- | --- | --- | --- | --- | --- |
 | bm25 | structured | 200 | 1.000 | 0.940 | 1 |
 | hybrid | structured | 200 | 1.000 | 0.887 | 4 |
-| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 59 |
-| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 76 |
+| hybrid + rerank | structured | 200 | 0.995 | 0.976 | 47 |
+| hybrid + rerank | fixed | 200 | 0.520 | 0.445 | 63 |
 | bm25 | fixed | 200 | 0.515 | 0.473 | 1 |
 | hybrid | fixed | 200 | 0.515 | 0.345 | 4 |
 | vector | structured | 200 | 0.435 | 0.317 | 3 |
-| vector | fixed | 200 | 0.260 | 0.158 | 15 |
+| vector | fixed | 200 | 0.260 | 0.158 | 13 |
 
 Highest hit rate at 5: **bm25 / structured** at 1.000.
 Highest MRR, and the setup that ships: **hybrid + rerank / structured** at 0.976 MRR and 0.995 hit rate at 5.
@@ -34,6 +34,30 @@ right passage to position one. The production setup is hybrid search with
 reranking over structure-aware chunks, because it is the only one that holds up
 when the question does not quote an id. Removing this bias from the question set
 is the first item for error analysis in Phase 3.
+
+## Answers
+
+50 questions from the answer suite, 30 with a known
+answer and 20 about packages and CVE numbers that do not exist.
+
+| Measure | Value | Of |
+| --- | --- | --- |
+| Answer accuracy | 1.000 | 30 of 30 answerable |
+| Refusal accuracy | 1.000 | 20 of 20 unanswerable |
+| Wrong citation rate | 0.000 | 0 of 50 answers |
+| Over-refusal rate | 0.000 | 0 of 30 answerable |
+
+Correctness is checked without a model in the loop. A fixed-version answer has to
+contain the version the advisory names, an is-affected answer has to agree with the
+version comparison, and a what-is answer has to cite the right advisory. Whether the
+prose itself is faithful is graded separately by the judge in Phase 3.
+
+| Question kind | Correct | Asked |
+| --- | --- | --- |
+| fixed_version | 10 | 10 |
+| is_affected | 10 | 10 |
+| unanswerable | 20 | 20 |
+| what_is | 10 | 10 |
 
 ## Agents
 
@@ -113,16 +137,16 @@ asked.
 
 | Measure | Value |
 | --- | --- |
-| Real API calls logged | 201 |
-| Total spend | $0.0630 |
+| Real API calls logged | 243 |
+| Total spend | $0.0792 |
 | p50 latency | 1.03 s |
-| p95 latency | 2.40 s |
+| p95 latency | 2.24 s |
 | Cost per answered question | $0.00034 |
 | Cost per repository scan | $0.00021 |
 
 | Prompt | Calls | Mean tokens | Mean cost | p50 | p95 |
 | --- | --- | --- | --- | --- | --- |
-| answer_question | 183 | 1368 | $0.00034 | 1.04 s | 2.18 s |
+| answer_question | 225 | 1398 | $0.00034 | 1.04 s | 2.01 s |
 | budget_probe | 1 | 111 | $0.00003 | 0.45 s | 0.45 s |
 | check_groq_connection | 3 | 141 | $0.00005 | 0.59 s | 1.15 s |
 | grade_passages | 6 | 782 | $0.00021 | 306.63 s | 480.16 s |
@@ -152,16 +176,12 @@ which is why the public demo limits `/ask` to six requests a minute per visitor.
 
 ## What is not measured yet
 
-Three measures have no committed score and are therefore not gated: answer accuracy,
-refusal accuracy and citation accuracy. They need a complete 50 question run against prompt
-version 3, and the free tier's rolling daily token budget has been refusing it: each answer
-spends one second talking to the model and then waits one to three minutes for capacity.
+The answer suite is measured. A complete 50 question run against prompt version 3 gave
+1.000 answer accuracy, 1.000 refusal accuracy and no wrong citations, so those three
+thresholds are back in `docs/eval_thresholds.json` and the gate now checks nine scores
+rather than six.
 
-A complete run on prompt version 2 gave 1.000, 1.000 and 0.000 wrong citations. Those
-numbers are not carried forward here, because version 3 changed how a refusal is written and
-reporting an old measurement as a current one is exactly the habit this report exists to
-avoid. The thresholds go back into `docs/eval_thresholds.json` when a version 3 run lands.
-
-Also outstanding: RAGAS as a second opinion on faithfulness, the three-model comparison, and
-the red team block rate. All three are written and tested, and all three are waiting on the
-same budget.
+Still outstanding, all written and tested, all waiting on the free tier's rolling daily
+token budget: RAGAS as a second opinion on faithfulness, the three-model comparison, the
+red team block rate over the whole attack set rather than the first twelve, and the single
+ReAct agent over all ten scenarios rather than the three it has run.

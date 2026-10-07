@@ -43,7 +43,7 @@ deployment.
 | Document | What it holds |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | How a question and a repository each flow through the system |
-| [docs/decisions.md](docs/decisions.md) | 22 design decisions, the options compared, the evidence |
+| [docs/decisions.md](docs/decisions.md) | 23 design decisions, the options compared, the evidence |
 | [docs/eval_report.md](docs/eval_report.md) | Every measurement, and what each does not measure |
 | [docs/model_card.md](docs/model_card.md) | The prompt injection classifier, its data and its weaknesses |
 | [docs/responsible_ai.md](docs/responsible_ai.md) | Risks, licences, what is logged, EU AI Act position |
@@ -77,9 +77,9 @@ without anyone labelling it.
 | Hit rate at 5, shipped setup | 0.995 |
 | MRR, shipped setup | 0.976 |
 | Hit rate at 5, fixed-size chunks | 0.520 |
-| Answer accuracy, prompt version 2 | 1.000 (30 of 30), being re-measured on version 3 |
-| Refusal accuracy on invented CVEs, prompt version 2 | 1.000 (20 of 20), being re-measured on version 3 |
-| Invented citations, prompt version 2 | 0 of 50 answers |
+| Answer accuracy | 1.000 (30 of 30) |
+| Refusal accuracy on invented CVEs | 1.000 (20 of 20) |
+| Invented citations | 0 of 50 answers |
 | Cost per answer | $0.00043, about 5 seconds |
 
 ### What chunking did
