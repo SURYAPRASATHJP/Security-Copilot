@@ -117,6 +117,7 @@ definitions and the same refusals. See [docs/use_with_mcp_clients.md](docs/use_w
 | --- | --- |
 | Tools served over MCP | 7, of which 2 can write |
 | Scenarios the team passed | 10 of 10 |
+| Scenarios the single ReAct agent passed | 4 of 10, for 227,464 tokens |
 | Writes without an approval | 0 |
 | Model tokens the team spent on those scenarios | 0 |
 | Steps per scan | 4 |
