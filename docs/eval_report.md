@@ -73,6 +73,19 @@ the questions where no deterministic check exists.
 | Mean correctness | 0.975 |
 | Agreement with the deterministic check | 100.0% |
 
+## Models compared
+
+The same answer questions put to three models on Groq, through the same prompt and
+the same retrieved passages, so the only thing that changes is the model.
+
+| Model | Questions | Accuracy | Correct refusals | Mean latency | Cost per question |
+| --- | --- | --- | --- | --- | --- |
+| openai/gpt-oss-120b | 12 | 1.000 | n/a | 1.30 s | $0.00043 |
+| openai/gpt-oss-20b | 12 | 1.000 | n/a | 0.90 s | $0.00047 |
+| openai/gpt-oss-safeguard-20b (APIStatusError: Error code: 413 - {'error': {'message': 'Request too large for model `openai/gpt-oss-safeguard-20b` in organization `org_01kxegbvqwe8yacd9x8rynrjrc` service tier `on_demand` on tokens per minute (TPM): Limit 2000, Requested 2647, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}) | 0 | 0.000 | n/a | 0.00 s | $0.00000 |
+
+**openai/gpt-oss-20b** is the one in use, at 1.000 accuracy and $0.00047 a question.
+
 ## Agents
 
 The same scenarios run twice: once through a single ReAct agent holding only the
@@ -81,7 +94,8 @@ wrote something without an approval, and must be zero.
 
 | Agent | Scenarios | Success rate | Average steps | Tokens | Estimated cost | Seconds | Safety violations |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| team | 10 | 1.00 | 4.0 | 0 | $0.0000 | 479 | 0 |
+| single agent | 10 | 0.40 | 6.1 | 227464 | $0.0341 | 1238 | 0 |
+| team | 10 | 1.00 | 4.0 | 0 | $0.0000 | 169 | 0 |
 
 The team spends no model tokens here, and that needs a caveat. It makes one model
 call, which grades whether the retrieved passages answer the question, and on a
@@ -90,21 +104,14 @@ still holds: its ranking is a sort in Python and its version arithmetic is the
 `packaging` library, so there is nothing else for a model to decide. The ReAct agent
 asks the model to choose every step, which is what the token column shows.
 
-### The single agent, on a subset
+Where a run did not meet its scenario:
 
-The ReAct baseline was run over the first three scenarios on a day when the budget allowed
-it. It is not in the table above because it covers three scenarios rather than ten, and
-putting the two on one row would invite a comparison the numbers do not support.
-
-| Agent | Scenarios | Success rate | Average steps | Tokens | Estimated cost | Seconds | Safety violations |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| single agent | 3 | 0.67 | 4.7 | 44,401 | $0.0067 | 293 | 0 |
-| team, same three | 3 | 1.00 | 4.0 | 0 | $0.0000 | 16 | 0 |
-
-On the three they share, the team is right where the ReAct agent is not, eighteen times
-faster, and spends no tokens. The one the ReAct agent failed, `unused-ranks-low`, it failed
-by running out of its twelve step budget rather than by reaching a wrong answer, which is
-the characteristic failure of asking a model to decide every step.
+- `unused-ranks-low` (single agent): stopped at the 12 step limit
+- `usage-beats-score` (single agent): stopped at the 12 step limit
+- `unpinned-flagged` (single agent): stopped at the 12 step limit
+- `triage-never-writes` (single agent): stopped at the 12 step limit
+- `function-not-called` (single agent): stopped at the 12 step limit
+- `duplicate-cve-collapsed` (single agent): stopped at the 12 step limit
 
 ## Error analysis
 
@@ -190,12 +197,11 @@ which is why the public demo limits `/ask` to six requests a minute per visitor.
 
 ## What is not measured yet
 
-The answer suite is measured. A complete 50 question run against prompt version 3 gave
-1.000 answer accuracy, 1.000 refusal accuracy and no wrong citations, so those three
-thresholds are back in `docs/eval_thresholds.json` and the gate now checks nine scores
-rather than six.
+Two things are left, both written and tested, both waiting on the free tier's rolling daily
+token budget: RAGAS as a second opinion on faithfulness, and a re-run of the model
+comparison to regenerate its section.
 
-Still outstanding, all written and tested, all waiting on the free tier's rolling daily
-token budget: RAGAS as a second opinion on faithfulness, the three-model comparison, the
-red team block rate over the whole attack set rather than the first twelve, and the single
-ReAct agent over all ten scenarios rather than the three it has run.
+The model comparison ships with two models rather than three. Groq no longer offers a
+general purpose Llama chat model on this account, and `openai/gpt-oss-safeguard-20b` is
+capped at 2,000 tokens a minute against a 2,647 token prompt, so it cannot serve a single
+request at any pace. The reasoning is in `docs/decisions.md`.
