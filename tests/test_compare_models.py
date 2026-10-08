@@ -2,6 +2,7 @@ import json
 
 from copilot.evals.compare_models import (
     CANDIDATES,
+    SHIPPED,
     ModelScore,
     calls_for,
     comparison_table,
@@ -22,9 +23,11 @@ def a_score(model, questions=10, correct=9, latency=1.0, cost=0.003, failed=""):
     )
 
 
-def test_three_models_are_compared():
-    assert len(CANDIDATES) == 3
+def test_every_candidate_is_a_model_the_free_tier_can_actually_serve():
+    # The free tier offers no third chat model this prompt fits, so two is the honest list.
+    assert len(CANDIDATES) == 2
     assert "openai/gpt-oss-120b" in CANDIDATES
+    assert all(name.startswith("openai/gpt-oss") for name in CANDIDATES)
 
 
 def test_accuracy_is_correct_over_asked():
@@ -100,3 +103,19 @@ def test_a_broken_line_in_the_log_is_skipped(tmp_path):
     log = tmp_path / "llm_calls.jsonl"
     log.write_text('{broken\n{"prompt_name": "answer_question", "cost_usd": 0.1}\n')
     assert len(calls_for("answer_question", 0, log)) == 1
+
+
+def test_the_section_does_not_pass_the_winner_off_as_the_shipped_model():
+    # A faster model winning on twelve questions is not the model the project ships.
+    faster = a_score("openai/gpt-oss-20b", latency=0.9)
+    shipped = a_score(SHIPPED, latency=1.3)
+    scores = [shipped, faster]
+    body = models_section(scores, pick_winner(scores))
+    assert "openai/gpt-oss-20b** comes out ahead" in body
+    assert f"{SHIPPED} is the one in use" in body
+    assert "is the one in use, at" not in body
+
+
+def test_the_section_counts_the_models_it_actually_compared():
+    scores = [a_score("openai/gpt-oss-120b"), a_score("openai/gpt-oss-20b")]
+    assert "put to 2 models on Groq" in models_section(scores, pick_winner(scores))

@@ -12,12 +12,13 @@ from copilot.evals.build_golden_questions import ANSWER, GoldenQuestion, read_qu
 from copilot.rag.answer_with_citations import answer_question
 from copilot.settings import get_settings
 
+# Groq's free tier has no third chat model this prompt fits: see decisions.md.
 CANDIDATES = (
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
-    "llama-3.3-70b-versatile",
 )
 DEFAULT_QUESTIONS = 12
+SHIPPED = "openai/gpt-oss-120b"
 
 
 class ModelScore(BaseModel):
@@ -72,7 +73,7 @@ def score_model(model: str, questions: Sequence[GoldenQuestion], pause: float) -
 
     for index, question in enumerate(questions, start=1):
         try:
-            answer = answer_question(question.question, model=model)
+            answer = answer_question(question.question, model=model, use_cache=False)
         except Exception as error:
             return score.model_copy(
                 update={"questions": index - 1, "failed": f"{type(error).__name__}: {error}"}
@@ -123,8 +124,8 @@ def models_section(scores: Sequence[ModelScore], winner: ModelScore | None) -> s
     lines = [
         "## Models compared",
         "",
-        "The same answer questions put to three models on Groq, through the same prompt and",
-        "the same retrieved passages, so the only thing that changes is the model.",
+        f"The same answer questions put to {len(scores)} models on Groq, through the same prompt",
+        "and the same retrieved passages, so the only thing that changes is the model.",
         "",
         comparison_table(scores),
         "",
@@ -132,8 +133,9 @@ def models_section(scores: Sequence[ModelScore], winner: ModelScore | None) -> s
     if winner:
         lines.extend(
             [
-                f"**{winner.model}** is the one in use, at {winner.accuracy:.3f} accuracy and "
-                f"${winner.cost_per_question_usd:.5f} a question.",
+                f"**{winner.model}** comes out ahead on these questions, at "
+                f"{winner.accuracy:.3f} accuracy and ${winner.cost_per_question_usd:.5f} a "
+                f"question. {SHIPPED} is the one in use.",
                 "",
             ]
         )

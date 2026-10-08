@@ -172,6 +172,7 @@ def answer_question(
     package: str | None = None,
     cache_only: bool = False,
     model: str | None = None,
+    use_cache: bool = True,
 ) -> CitedAnswer:
     """Retrieve, ask the model for a structured answer, then check every citation it gave."""
     if results is None:
@@ -185,6 +186,7 @@ def answer_question(
             prompt_name=PROMPT_NAME,
             cache_only=cache_only,
             model=model,
+            use_cache=use_cache,
         )
     except BadRequestError as error:
         # A refusal is sometimes emitted as bare text, which schema mode rejects outright.
