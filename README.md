@@ -43,7 +43,7 @@ deployment.
 | Document | What it holds |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | How a question and a repository each flow through the system |
-| [docs/decisions.md](docs/decisions.md) | 23 design decisions, the options compared, the evidence |
+| [docs/decisions.md](docs/decisions.md) | 24 design decisions, the options compared, the evidence |
 | [docs/eval_report.md](docs/eval_report.md) | Every measurement, and what each does not measure |
 | [docs/model_card.md](docs/model_card.md) | The prompt injection classifier, its data and its weaknesses |
 | [docs/responsible_ai.md](docs/responsible_ai.md) | Risks, licences, what is logged, EU AI Act position |
