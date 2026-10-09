@@ -73,6 +73,27 @@ the questions where no deterministic check exists.
 | Mean correctness | 0.975 |
 | Agreement with the deterministic check | 100.0% |
 
+## RAGAS
+
+RAGAS scores the same answers with its own prompts, using Groq as the judge and the
+local bge embeddings. It is here as a second opinion written by someone else, which
+is the only reason a second opinion is worth having.
+
+| Metric | Score | Answers scored |
+| --- | --- | --- |
+| answer_relevancy | 0.915 | 3 of 8 |
+| context_recall | 1.000 | 4 of 8 |
+| faithfulness | 1.000 | 3 of 8 |
+| llm_context_precision_with_reference | 0.889 | 3 of 8 |
+
+Asked over 8 questions in 3090 seconds.
+
+Not every answer got a score. RAGAS runs its metrics concurrently and Groq's free
+tier allows 8,000 tokens a minute, so the jobs that waited longest hit its own
+timeout and left their rows empty. A mean over the rows that returned is still
+worth reading, but it is not a mean over all of them, which is why the count is
+in the table.
+
 ## Models compared
 
 The same answer questions put to 2 models on Groq, through the same prompt
