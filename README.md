@@ -13,6 +13,32 @@ answers.
 
 A real pull request it opened: [vulnerable-demo-app#1](https://github.com/SURYAPRASATHJP/vulnerable-demo-app/pull/1).
 
+## How it works
+
+```mermaid
+flowchart LR
+    OSV[OSV, NVD, EPSS, KEV] --> C[1,440 advisories<br/>one record per package]
+    C --> IX[Structure-aware chunks<br/>BM25 + vectors on disk]
+
+    Q[A question] --> GI[Input guard<br/>retrieved text fenced as data]
+    GI --> H[Hybrid search, RRF,<br/>cross-encoder rerank]
+    IX --> H
+    H --> M[Groq gpt-oss-120b<br/>JSON Schema mode]
+    M --> GO[Output guard<br/>every citation checked]
+    GO --> A[Answer with sources,<br/>or a refusal]
+
+    R[A repository] --> T[Scanner, Analyst,<br/>Fixer, Reviewer]
+    IX --> T
+    T --> HA{Human approval}
+    HA -->|approved| PR[Draft pull request<br/>never against main]
+    HA -->|rejected| X[Nothing written]
+```
+
+Whether a pinned version falls inside an affected range is decided by the `packaging`
+library, not the model. Nothing is written to a file or a branch without a person saying yes.
+Both diagrams in full, question and repository, are in
+[docs/architecture.md](docs/architecture.md).
+
 ## Results
 
 | What | Number |
@@ -20,11 +46,15 @@ A real pull request it opened: [vulnerable-demo-app#1](https://github.com/SURYAP
 | Retrieval hit rate at 5 | 0.995 |
 | Retrieval MRR | 0.976 |
 | Hit rate with fixed-size chunks instead | 0.520 |
+| Answer accuracy | 1.000 (30 of 30) |
+| Refusal accuracy on invented CVEs | 1.000 (20 of 20) |
+| Attack block rate, with guardrails | 96.88% of 64, against 37.50% without them |
 | Agent scenarios passed | 10 of 10 |
 | Writes without a human approval | 0 |
 | Prompt injection classifier F1 | 0.969 |
 | Prompt injection classifier recall | 0.975 |
 | Cost per answered question | $0.00033 |
+| Cost per repository scan | $0.00023 |
 | p95 latency under 20 concurrent users | 0.470 s |
 | Advisories in the corpus | 1,440 over 102 packages |
 
