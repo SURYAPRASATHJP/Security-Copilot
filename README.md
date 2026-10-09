@@ -1,7 +1,7 @@
 # Security Copilot
 
-[![tests](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/tests.yml/badge.svg)](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/tests.yml)
-[![evals](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/evals.yml/badge.svg)](https://github.com/SURYAPRASATHJP/security-copilot/actions/workflows/evals.yml)
+[![tests](https://github.com/SURYAPRASATHJP/Security-Copilot/actions/workflows/tests.yml/badge.svg)](https://github.com/SURYAPRASATHJP/Security-Copilot/actions/workflows/tests.yml)
+[![evals](https://github.com/SURYAPRASATHJP/Security-Copilot/actions/workflows/evals.yml/badge.svg)](https://github.com/SURYAPRASATHJP/Security-Copilot/actions/workflows/evals.yml)
 
 Tells you whether your Python dependencies have known vulnerabilities, explains each one
 with a cited advisory, and opens a pull request that fixes it.
