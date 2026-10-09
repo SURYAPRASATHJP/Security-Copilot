@@ -75,16 +75,15 @@ the questions where no deterministic check exists.
 
 ## Models compared
 
-The same answer questions put to three models on Groq, through the same prompt and
-the same retrieved passages, so the only thing that changes is the model.
+The same answer questions put to 2 models on Groq, through the same prompt
+and the same retrieved passages, so the only thing that changes is the model.
 
 | Model | Questions | Accuracy | Correct refusals | Mean latency | Cost per question |
 | --- | --- | --- | --- | --- | --- |
-| openai/gpt-oss-120b | 12 | 1.000 | n/a | 1.30 s | $0.00043 |
-| openai/gpt-oss-20b | 12 | 1.000 | n/a | 0.90 s | $0.00047 |
-| openai/gpt-oss-safeguard-20b (APIStatusError: Error code: 413 - {'error': {'message': 'Request too large for model `openai/gpt-oss-safeguard-20b` in organization `org_01kxegbvqwe8yacd9x8rynrjrc` service tier `on_demand` on tokens per minute (TPM): Limit 2000, Requested 2647, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}) | 0 | 0.000 | n/a | 0.00 s | $0.00000 |
+| openai/gpt-oss-120b | 12 | 1.000 | n/a | 1.07 s | $0.00042 |
+| openai/gpt-oss-20b | 12 | 1.000 | n/a | 0.77 s | $0.00048 |
 
-**openai/gpt-oss-20b** is the one in use, at 1.000 accuracy and $0.00047 a question.
+**openai/gpt-oss-20b** comes out ahead on these questions, at 1.000 accuracy and $0.00048 a question. openai/gpt-oss-120b is the one in use.
 
 ## Agents
 
