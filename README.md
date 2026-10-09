@@ -63,17 +63,21 @@ Every number comes from `make evals` and is written to
 
 ## Status
 
-Phases 1 and 2 are complete. Phase 3 is most of the way: tracing, both guardrails, the
-classifier, MLflow, DVC, drift, the CI eval gate and the load test are done. Still open are
-the model-graded evals, which are waiting on a free-tier token budget, and the public
-deployment.
+Complete, and measured. Every number in this README comes from `make evals` and is written
+to [docs/eval_report.md](docs/eval_report.md), including the model-graded ones: the rubric
+judge, RAGAS as a second opinion, the three-model comparison and the full red team set.
+
+**It runs locally rather than on a hosted demo.** Hugging Face now requires a paid plan to
+create a Docker Space, and this project is built to stay at zero cost, so there is no public
+URL to click. [Run it](#run-it) takes two commands once the index is built, and the reasoning
+is recorded in [docs/decisions.md](docs/decisions.md).
 
 ## How it is laid out
 
 | Document | What it holds |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | How a question and a repository each flow through the system |
-| [docs/decisions.md](docs/decisions.md) | 26 design decisions, the options compared, the evidence |
+| [docs/decisions.md](docs/decisions.md) | 27 design decisions, the options compared, the evidence |
 | [docs/eval_report.md](docs/eval_report.md) | Every measurement, and what each does not measure |
 | [docs/model_card.md](docs/model_card.md) | The prompt injection classifier, its data and its weaknesses |
 | [docs/responsible_ai.md](docs/responsible_ai.md) | Risks, licences, what is logged, EU AI Act position |

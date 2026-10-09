@@ -72,3 +72,17 @@ def test_every_included_path_exists_in_the_repository():
 def test_the_index_travels_as_a_dataset_not_inside_the_image():
     assert deploy.INDEX_FILE.endswith(".tar.gz")
     assert "index" in deploy.INDEX_FILE
+
+
+def test_a_free_account_is_told_it_cannot_create_a_docker_space():
+    # The failure used to arrive partway through the upload, which read like a bug.
+    deploy = load_deploy()
+    with pytest.raises(deploy.PaidPlanNeededError) as raised:
+        deploy.require_docker_spaces(is_pro=False)
+    assert "paid Hugging Face plan" in str(raised.value)
+    assert "make api" in str(raised.value)
+
+
+def test_a_paid_account_is_allowed_through():
+    deploy = load_deploy()
+    assert deploy.require_docker_spaces(is_pro=True) is None

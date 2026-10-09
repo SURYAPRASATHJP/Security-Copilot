@@ -56,10 +56,27 @@ def require_token() -> str:
     return token
 
 
-def whoami(token: str) -> str:
+class PaidPlanNeededError(RuntimeError):
+    pass
+
+
+def account(token: str) -> tuple[str, bool]:
+    """Return the account name and whether it may create a Docker Space."""
     from huggingface_hub import HfApi
 
-    return HfApi(token=token).whoami()["name"]
+    who = HfApi(token=token).whoami()
+    return who["name"], bool(who.get("isPro"))
+
+
+def require_docker_spaces(is_pro: bool) -> None:
+    # Hugging Face made Gradio and Docker Spaces a paid feature, so a free account
+    # cannot create one and the request fails well after the upload has started.
+    if not is_pro:
+        raise PaidPlanNeededError(
+            "Creating a Docker Space needs a paid Hugging Face plan and this account is on "
+            "the free tier, so the deploy would fail partway. Run the demo locally with "
+            "make api and make app instead. See docs/decisions.md."
+        )
 
 
 def create_space(token: str, repo_id: str) -> str:
@@ -137,7 +154,12 @@ def main() -> int:
     args = parser.parse_args()
 
     token = require_token()
-    owner = whoami(token)
+    owner, is_pro = account(token)
+    try:
+        require_docker_spaces(is_pro)
+    except PaidPlanNeededError as error:
+        print(error)
+        return 1
     space_id = f"{owner}/{args.space}"
     dataset_id = f"{owner}/{args.space}-index"
 
