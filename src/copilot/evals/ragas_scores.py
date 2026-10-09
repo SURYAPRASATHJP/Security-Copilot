@@ -22,6 +22,7 @@ CONTEXT_RECALL = "context recall"
 class RagasScores(BaseModel):
     questions: int = 0
     scores: dict[str, float] = Field(default_factory=dict)
+    scored: dict[str, int] = Field(default_factory=dict)
     seconds: float = 0.0
     failed: str = ""
 
@@ -131,11 +132,25 @@ def score_with_ragas(
             failed=f"{type(error).__name__}: {error}",
         )
 
-    scores = {
-        name: float(value) for name, value in dict(result).items() if isinstance(value, int | float)
-    }
+    # A job that timed out leaves its row empty, so each metric is averaged over the
+    # rows that actually came back and the count is carried alongside the score.
+    frame = result.to_pandas()
+    scores: dict[str, float] = {}
+    scored: dict[str, int] = {}
+    for metric in metrics:
+        name = getattr(metric, "name", str(metric))
+        if name not in frame.columns:
+            continue
+        values = frame[name].dropna()
+        if values.empty:
+            continue
+        scores[name] = float(values.mean())
+        scored[name] = int(len(values))
     return RagasScores(
-        questions=len(answered), scores=scores, seconds=time.perf_counter() - started
+        questions=len(answered),
+        scores=scores,
+        scored=scored,
+        seconds=time.perf_counter() - started,
     )
 
 
@@ -152,11 +167,23 @@ def ragas_section(result: RagasScores, own_faithfulness: float | None = None) ->
         lines.extend([f"The run did not finish: {result.failed}", ""])
         return "\n".join(lines)
 
-    lines.extend(["| Metric | Score |", "| --- | --- |"])
+    lines.extend(["| Metric | Score | Answers scored |", "| --- | --- | --- |"])
     for name, value in sorted(result.scores.items()):
-        lines.append(f"| {name} | {value:.3f} |")
+        counted = result.scored.get(name, result.questions)
+        lines.append(f"| {name} | {value:.3f} | {counted} of {result.questions} |")
     lines.append("")
-    lines.append(f"Measured over {result.questions} questions in {result.seconds:.0f} seconds.")
+    lines.append(f"Asked over {result.questions} questions in {result.seconds:.0f} seconds.")
+    if any(count < result.questions for count in result.scored.values()):
+        lines.extend(
+            [
+                "",
+                "Not every answer got a score. RAGAS runs its metrics concurrently and Groq's free",
+                "tier allows 8,000 tokens a minute, so the jobs that waited longest hit its own",
+                "timeout and left their rows empty. A mean over the rows that returned is still",
+                "worth reading, but it is not a mean over all of them, which is why the count is",
+                "in the table.",
+            ]
+        )
 
     faithfulness = result.scores.get("faithfulness")
     if faithfulness is not None and own_faithfulness is not None:

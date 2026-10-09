@@ -58,3 +58,27 @@ def test_no_comparison_is_drawn_when_only_one_judge_ran():
 
 def test_the_section_explains_why_a_second_opinion_is_worth_having():
     assert "written by someone else" in ragas_section(RagasScores())
+
+
+def test_a_complete_run_says_every_answer_was_scored():
+    result = RagasScores(
+        questions=30,
+        scores={"faithfulness": 0.9},
+        scored={"faithfulness": 30},
+        seconds=12.0,
+    )
+    body = ragas_section(result)
+    assert "| faithfulness | 0.900 | 30 of 30 |" in body
+    assert "Not every answer got a score" not in body
+
+
+def test_a_run_with_timed_out_jobs_says_so_rather_than_hiding_behind_the_mean():
+    result = RagasScores(
+        questions=30,
+        scores={"faithfulness": 0.9},
+        scored={"faithfulness": 9},
+        seconds=3048.0,
+    )
+    body = ragas_section(result)
+    assert "| faithfulness | 0.900 | 9 of 30 |" in body
+    assert "Not every answer got a score" in body
